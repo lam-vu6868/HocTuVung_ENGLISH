@@ -745,8 +745,9 @@
                 <h3 style="margin: 0 0 5px 0; color: var(--primary-dark); font-size: 18px;">${deck.name || "Bộ từ chưa tên"}</h3>
                 <p style="margin: 0; color: #7f8c8d; font-size: 14px; font-weight: 600;">${deck.words.length} từ vựng</p>
               </div>
-              <div style="display: flex; gap: 10px;">
-                <button class="main-btn btn-quiz" style="min-width: 60px; padding: 10px; font-size: 14px;" onclick="playSelectedDeck('${deck.id}')">▶️ Học</button>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
+                ${deck.mistakes && deck.mistakes.length > 0 ? `<button class="main-btn btn-spell" style="min-width: 60px; padding: 10px; font-size: 14px;" onclick="playMistakesDeck('${deck.id}')">⚠️ Ôn ${deck.mistakes.length} từ sai</button>` : ""}
+                <button class="main-btn btn-quiz" style="min-width: 60px; padding: 10px; font-size: 14px;" onclick="playSelectedDeck('${deck.id}')">▶️ Học tất cả</button>
                 <button class="main-btn" style="min-width: 60px; padding: 10px; font-size: 14px; background:var(--danger); box-shadow:0 4px 0 var(--danger-dark);" onclick="deleteDeck('${deck.id}')">🗑️ Xóa</button>
               </div>
             </div>
@@ -780,6 +781,19 @@
           currentDeckId = deck.id;
           document.getElementById("deckName").value = deck.name;
           preparedData = JSON.parse(JSON.stringify(deck.words)); // Clone dữ liệu
+          renderPreviewHtml();
+        }
+      }
+
+      function playMistakesDeck(id) {
+        let deck = savedDecks.find((d) => d.id === id);
+        if (deck && deck.mistakes && deck.mistakes.length > 0) {
+          currentDeckId = deck.id;
+          document.getElementById("deckName").value = deck.name; // Keep tracking the original deck
+          // Chỉ lấy những từ nằm trong danh sách mistakes của bộ này
+          preparedData = JSON.parse(JSON.stringify(deck.words)).filter((w) =>
+            deck.mistakes.includes(w.word),
+          );
           renderPreviewHtml();
         }
       }
@@ -1389,6 +1403,9 @@
         previewSection.style.display = "block";
         document.getElementById("dashboardSection").style.display = "none";
         document.getElementById("inputSection").style.display = "none";
+        document.getElementById("quizArea").innerHTML = "";
+        document.getElementById("statsArea").style.display = "none";
+        document.getElementById("progressContainer").style.display = "none";
 
         let previewHtml = `
           <h3>🔍 Xem trước & Chỉnh sửa nghĩa</h3>
@@ -1423,6 +1440,19 @@
 
       window.updateCustomDefinition = (index, value) => {
         if (preparedData[index]) preparedData[index].definition = value.trim();
+      };
+
+      window.scrollToUnanswered = () => {
+        const unanswered = document.querySelector(
+          ".question-card:not(.answered)",
+        );
+        if (unanswered) {
+          unanswered.scrollIntoView({ behavior: "smooth", block: "center" });
+          unanswered.classList.add("shake");
+          setTimeout(() => unanswered.classList.remove("shake"), 400);
+        } else {
+          alert("Hoan hô! Bạn đã hoàn thành tất cả các câu! 🎉");
+        }
       };
 
       window.goBackToDashboard = () => {
@@ -1634,6 +1664,16 @@
               quizArea.appendChild(questionDiv);
             });
           }
+
+          // Thêm cụm nút Điều hướng cuối trang
+          let bottomControls = document.createElement("div");
+          bottomControls.style =
+            "display: flex; gap: 15px; margin-top: 30px; margin-bottom: 40px;";
+          bottomControls.innerHTML = `
+            <button class="main-btn" style="background:#4a5568; box-shadow: 0 4px 0 #2d3748; font-size:14px; flex: 1;" onclick="scrollToUnanswered()">🔍 Tìm câu chưa làm</button>
+            <button class="main-btn btn-primary" style="font-size:14px; flex: 1;" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">⬆️ Lên đầu trang</button>
+          `;
+          quizArea.appendChild(bottomControls);
         }
       }
 
@@ -1685,6 +1725,27 @@
       };
 
       function showStatistics(mode) {
+        // --- LƯU LẠI TỪ SAI VÀO LOCALSTORAGE CHO BỘ TỪ HIỆN TẠI ---
+        if (currentDeckId && mode !== "flashcard") {
+          let deckIndex = savedDecks.findIndex((d) => d.id === currentDeckId);
+          if (deckIndex >= 0) {
+            let deckMistakes = new Set(savedDecks[deckIndex].mistakes || []);
+            // Quét qua những từ vừa ôn (preparedData)
+            preparedData.forEach((item) => {
+              // Tìm xem từ này lúc nãy làm có bị sai không
+              let missedThisTime = mistakes.find((m) => m.word === item.word);
+              if (missedThisTime) {
+                deckMistakes.add(item.word); // Làm sai -> Chui vào sổ đen
+              } else {
+                deckMistakes.delete(item.word); // Làm đúng -> Thoát khỏi sổ đen
+              }
+            });
+            savedDecks[deckIndex].mistakes = Array.from(deckMistakes);
+            localStorage.setItem("vocaDecks", JSON.stringify(savedDecks));
+          }
+        }
+        // --------------------------------------------------------
+
         document.getElementById("progressContainer").style.display = "none";
         const statsArea = document.getElementById("statsArea");
         statsArea.style.display = "block";
