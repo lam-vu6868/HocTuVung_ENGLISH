@@ -1325,6 +1325,24 @@
       }
 
       async function loadAndPreviewWords() {
+        const deckNameVal = document.getElementById("deckName").value.trim();
+        const finalDeckName =
+          deckNameVal || "Bộ từ " + new Date().toLocaleDateString("vi-VN");
+
+        // 🛡️ Bắt lỗi trùng tên bộ từ
+        const isDuplicate = savedDecks.find(
+          (d) =>
+            d.name.toLowerCase() === finalDeckName.toLowerCase() &&
+            d.id !== currentDeckId,
+        );
+        if (isDuplicate) {
+          alert(
+            `⚠️ Bộ từ mang tên "${finalDeckName}" đã tồn tại! Vui lòng đặt tên khác để không bị nhầm lẫn nhé.`,
+          );
+          document.getElementById("deckName").focus();
+          return;
+        }
+
         const input = document.getElementById("wordInput").value;
         const loading = document.getElementById("loading");
         const inputSection = document.getElementById("inputSection");
