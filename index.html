@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>💡 Ôn Từ Vựng Đa Năng - UX Pro Bản Sửa Lỗi</title>
+    <title>💡 Ôn Từ Vựng Đa Năng - UX Pro Tích Hợp AI Fuzzy</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
@@ -557,7 +557,7 @@
       let mistakes = [];
       let flashcardData = [];
       let currentCardIndex = 0;
-      window.currentSpeechLang = "en-US"; // Ngôn ngữ nhận diện mặc định (Mỹ)
+      window.currentSpeechLang = "en-US"; // Ngôn ngữ nhận diện giọng nói mặc định
 
       const dummyDistractors = [
         { word: "apple", definition: "quả táo", ipa: "/ˈæp.əl/" },
@@ -607,7 +607,6 @@
         return "";
       }
 
-      // Tải từ vựng, tự dịch và hiển thị màn hình Preview
       async function loadAndPreviewWords() {
         const input = document.getElementById("wordInput").value;
         const loading = document.getElementById("loading");
@@ -678,7 +677,6 @@
           return;
         }
 
-        // Hiện màn hình Preview
         inputSection.style.display = "none";
         previewSection.style.display = "block";
 
@@ -732,7 +730,6 @@
         const progressContainer = document.getElementById("progressContainer");
         const progressBar = document.getElementById("progressBar");
 
-        // Sao chép dữ liệu đã được custom nghĩa ra học
         let localData = JSON.parse(JSON.stringify(preparedData));
         localData = localData.sort(() => 0.5 - Math.random());
 
@@ -919,8 +916,39 @@
               quizArea.appendChild(questionDiv);
             });
 
-            // CHẾ ĐỘ 3: TẬP PHÁT ÂM (ĐÃ NÂNG CẤP TOP 5 KẾT QUẢ + FIXED LỖI)
+            // CHẾ ĐỘ 3: TẬP PHÁT ÂM (ĐÃ NÂNG CẤP FUZZY MATCHING)
           } else if (mode === "speak") {
+            // 🧠 THUẬT TOÁN FUZZY MATCHING (So khớp mờ)
+            const calculateSimilarity = (s1, s2) => {
+              let longer = s1.length > s2.length ? s1 : s2;
+              let shorter = s1.length > s2.length ? s2 : s1;
+              if (longer.length === 0) return 1.0;
+
+              let costs = new Array();
+              for (let i = 0; i <= longer.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= shorter.length; j++) {
+                  if (i === 0) costs[j] = j;
+                  else {
+                    if (j > 0) {
+                      let newValue = costs[j - 1];
+                      if (longer.charAt(i - 1) !== shorter.charAt(j - 1)) {
+                        newValue =
+                          Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                      }
+                      costs[j - 1] = lastValue;
+                      lastValue = newValue;
+                    }
+                  }
+                }
+                if (i > 0) costs[shorter.length] = lastValue;
+              }
+              return (
+                (longer.length - costs[shorter.length]) /
+                parseFloat(longer.length)
+              );
+            };
+
             localData.forEach((item, index) => {
               let questionDiv = document.createElement("div");
               questionDiv.className = "question-card";
@@ -943,17 +971,14 @@
                   window.SpeechRecognition || window.webkitSpeechRecognition;
                 if (!SpeechRecognition) {
                   alert(
-                    "Trình duyệt này không hỗ trợ AI nhận diện giọng nói. Hãy thử lại trên Google Chrome bạn nhé!",
+                    "Trình duyệt này không hỗ trợ AI nhận diện giọng nói. Hãy thử lại trên Google Chrome nhé!",
                   );
                   return;
                 }
 
                 const recognition = new SpeechRecognition();
-                // Sử dụng cấu hình giọng đã chọn (Mỹ hoặc Anh)
                 recognition.lang = window.currentSpeechLang || "en-US";
                 recognition.interimResults = false;
-
-                // Yêu cầu AI đưa ra top 5 từ nghe giống nhất để tăng độ bao dung sai số
                 recognition.maxAlternatives = 5;
 
                 micBtn.classList.add("listening");
@@ -961,45 +986,54 @@
                 explanationDiv.innerHTML =
                   " Đang nghe... Hãy nói to, rõ ràng vào Mic nhé!";
                 explanationDiv.style.background = "#f7fafc";
-                explanationDiv.style.color = "var(--text-color)"; // Đã vá lỗi thêm "" thành công
+                explanationDiv.style.color = "var(--text-color)"; // Đã sửa lỗi biến CSS string
 
                 recognition.start();
 
                 recognition.onresult = (event) => {
                   micBtn.classList.remove("listening");
-                  micBtn.disabled = true; // Cho đọc 1 lần trên mỗi thẻ câu hỏi
+                  micBtn.disabled = true;
 
                   let targetText = item.word.toLowerCase().trim();
                   let isMatch = false;
-                  let topGuess = event.results[0][0].transcript
-                    .trim()
-                    .toLowerCase();
-                  let confidence = Math.round(
-                    event.results[0][0].confidence * 100,
-                  );
+                  let bestGuess = "";
+                  let bestMatchScore = 0;
 
-                  // Vòng lặp quét qua cả 5 từ đồng âm mà máy thu được
+                  // Quét 5 kết quả và dùng Fuzzy Logic so sánh
                   for (let i = 0; i < event.results[0].length; i++) {
                     let spokenText = event.results[0][i].transcript
                       .trim()
                       .toLowerCase();
-                    spokenText = spokenText.replace(/[.,!?]/g, ""); // Dọn dẹp dấu câu thừa
+                    spokenText = spokenText.replace(/[.,!?]/g, "");
 
+                    let similarityScore = calculateSimilarity(
+                      targetText,
+                      spokenText,
+                    );
+
+                    // Lưu từ có điểm giống cao nhất
+                    if (similarityScore > bestMatchScore) {
+                      bestMatchScore = similarityScore;
+                      bestGuess = spokenText;
+                    }
+
+                    // Khớp hệt HOẶC độ giống >= 80% thì cho đỗ
                     if (
                       spokenText === targetText ||
                       targetText.includes(spokenText) ||
-                      spokenText.includes(targetText)
+                      spokenText.includes(targetText) ||
+                      similarityScore >= 0.8
                     ) {
                       isMatch = true;
-                      break;
                     }
                   }
 
+                  let finalPercent = Math.round(bestMatchScore * 100);
                   answeredQuestions++;
 
                   if (isMatch) {
                     correctAnswers++;
-                    explanationDiv.innerHTML = `🎉 <b>Chính xác!</b> (Độ tự tin của AI: <b>${confidence}%</b>)<br><span style="font-weight:400; color:#555">Máy nghe được bạn đọc là: "${topGuess}"</span>`;
+                    explanationDiv.innerHTML = `🎉 <b>Chính xác!</b> (Độ khớp: <b>${finalPercent}%</b>)<br><span style="font-weight:400; color:#555">Máy nghe được: "${bestGuess}"</span>`;
                     explanationDiv.style.background = "#eafaf1";
                     explanationDiv.style.color = "var(--success-dark)";
                   } else {
@@ -1009,9 +1043,9 @@
                       word: item.word,
                       question: `Phát âm từ "${item.word}"`,
                       correct: item.word,
-                      userAnswer: topGuess,
+                      userAnswer: bestGuess,
                     });
-                    explanationDiv.innerHTML = `❌ <b>Chưa chuẩn rồi!</b><br><span style="font-weight:700; color:var(--danger-dark);">Máy thu được âm: "${topGuess}"</span><br><span style="font-weight:400; color:#7f8c8d">Hãy bấm nút "Nghe mẫu" và thử lại ở phần ôn tập nhé!</span>`;
+                    explanationDiv.innerHTML = `❌ <b>Chưa chuẩn rồi!</b> (Độ khớp chỉ đạt: <b>${finalPercent}%</b>)<br><span style="font-weight:700; color:var(--danger-dark);">Máy thu được âm: "${bestGuess}"</span><br><span style="font-weight:400; color:#7f8c8d">Hãy cố gắng phát âm rõ hơn ở phần ôn tập nhé!</span>`;
                     explanationDiv.style.background = "#fdedec";
                     explanationDiv.style.color = "var(--danger-dark)";
                   }
@@ -1021,7 +1055,7 @@
                 recognition.onerror = () => {
                   micBtn.classList.remove("listening");
                   explanationDiv.innerHTML =
-                    "⚠️ Không nhận diện được âm thanh. Hãy kiểm tra lại Micro hoặc cấp quyền nhé!";
+                    "⚠️ Không nhận diện được âm thanh. Hãy kiểm tra lại Micro!";
                   explanationDiv.style.background = "#fff3cd";
                   explanationDiv.style.color = "#856404";
                 };
@@ -1037,7 +1071,6 @@
         const quizArea = document.getElementById("quizArea");
         let item = flashcardData[currentCardIndex];
 
-        // Giữ lại nút Đổi chế độ của Màn hình 3 học tập
         quizArea.innerHTML = `
           <div>
             <button class="speaker-btn" onclick="goBackToInput()" style="margin-bottom: 20px; border-color:var(--primary); color:var(--primary-dark);">⬅️ Đổi chế độ / Thêm từ</button>
