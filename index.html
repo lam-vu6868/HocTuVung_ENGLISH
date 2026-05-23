@@ -476,11 +476,42 @@
     </style>
   </head>
   <body>
-    <div id="inputSection">
-      <h2>✨ Ôn Tập Từ Vựng Pro</h2>
-      <p class="subtitle">
-        Nhập từ vựng để bắt đầu trải nghiệm học tập tuyệt vời!
+    <!-- Giao diện Quản lý bộ từ -->
+    <div
+      id="dashboardSection"
+      style="display: none; animation: slideInUp 0.4s ease-out"
+    >
+      <h2>📚 Tủ Từ Vựng Của Tôi</h2>
+      <p class="subtitle" style="margin-bottom: 25px">
+        Quản lý các bộ từ vựng bạn đã lưu trên máy
       </p>
+      <div id="deckList"></div>
+      <button
+        class="main-btn btn-primary"
+        onclick="showInputSection()"
+        style="width: 100%; margin-top: 20px"
+      >
+        ➕ Tạo Bộ Từ Mới
+      </button>
+    </div>
+
+    <div id="inputSection" style="display: none">
+      <h2>✨ Tạo Bộ Từ Vựng Mới</h2>
+      <p class="subtitle" style="margin-bottom: 15px">
+        Nhập tên và dán danh sách từ vựng vào đây nhé!
+      </p>
+      <input
+        type="text"
+        id="deckName"
+        class="preview-input"
+        placeholder="Tên bộ từ (VD: Unit 1 - Động vật)"
+        style="
+          width: 100%;
+          margin-bottom: 15px;
+          box-sizing: border-box;
+          font-size: 16px;
+        "
+      />
       <textarea
         id="wordInput"
         placeholder="Nhập từ vựng ở đây nhé...&#10;Ví dụ:&#10;apple&#10;beautiful&#10;run"
@@ -523,6 +554,92 @@
       let mistakes = [];
       let flashcardData = [];
       let currentCardIndex = 0;
+
+      // === Quản lý Kho Từ Vựng bằng LocalStorage ===
+      let savedDecks = JSON.parse(localStorage.getItem("vocaDecks")) || [];
+      let currentDeckId = null;
+
+      document.addEventListener("DOMContentLoaded", () => {
+        if (savedDecks.length > 0) {
+          showDashboard();
+        } else {
+          showInputSection();
+        }
+      });
+
+      function showDashboard() {
+        document.getElementById("dashboardSection").style.display = "block";
+        document.getElementById("inputSection").style.display = "none";
+        document.getElementById("previewSection").style.display = "none";
+        document.getElementById("quizArea").innerHTML = "";
+        document.getElementById("statsArea").style.display = "none";
+        document.getElementById("progressContainer").style.display = "none";
+
+        let html = "";
+        savedDecks.forEach((deck) => {
+          html += `
+            <div style="background: white; border: 2px solid #e0e6ed; padding: 15px 20px; border-radius: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: 0.2s;">
+              <div>
+                <h3 style="margin: 0 0 5px 0; color: var(--primary-dark); font-size: 18px;">${deck.name || "Bộ từ chưa tên"}</h3>
+                <p style="margin: 0; color: #7f8c8d; font-size: 14px; font-weight: 600;">${deck.words.length} từ vựng</p>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <button class="main-btn btn-quiz" style="min-width: 60px; padding: 10px; font-size: 14px;" onclick="playSelectedDeck('${deck.id}')">▶️ Học</button>
+                <button class="main-btn" style="min-width: 60px; padding: 10px; font-size: 14px; background:var(--danger); box-shadow:0 4px 0 var(--danger-dark);" onclick="deleteDeck('${deck.id}')">🗑️ Xóa</button>
+              </div>
+            </div>
+          `;
+        });
+        if (savedDecks.length === 0)
+          html = `<p style="text-align:center; color:#7f8c8d;">Bạn chưa có bộ từ vựng nào.</p>`;
+        document.getElementById("deckList").innerHTML = html;
+      }
+
+      function showInputSection() {
+        document.getElementById("dashboardSection").style.display = "none";
+        document.getElementById("inputSection").style.display = "block";
+        document.getElementById("deckName").value = "";
+        document.getElementById("wordInput").value = "";
+        currentDeckId = Date.now().toString(); // Khởi tạo ID mới
+      }
+
+      function deleteDeck(id) {
+        if (confirm("Bạn có chắc muốn xóa bộ từ này khỏi máy?")) {
+          savedDecks = savedDecks.filter((d) => d.id !== id);
+          localStorage.setItem("vocaDecks", JSON.stringify(savedDecks));
+          if (savedDecks.length > 0) showDashboard();
+          else showInputSection();
+        }
+      }
+
+      function playSelectedDeck(id) {
+        let deck = savedDecks.find((d) => d.id === id);
+        if (deck) {
+          currentDeckId = deck.id;
+          document.getElementById("deckName").value = deck.name;
+          preparedData = JSON.parse(JSON.stringify(deck.words)); // Clone dữ liệu
+          renderPreviewHtml();
+        }
+      }
+
+      function saveDeck() {
+        let name =
+          document.getElementById("deckName").value.trim() ||
+          "Bộ từ " + new Date().toLocaleDateString("vi-VN");
+        let existingIdx = savedDecks.findIndex((d) => d.id === currentDeckId);
+        if (existingIdx >= 0) {
+          savedDecks[existingIdx].name = name;
+          savedDecks[existingIdx].words = preparedData;
+        } else {
+          savedDecks.push({
+            id: currentDeckId || Date.now().toString(),
+            name: name,
+            words: preparedData,
+          });
+        }
+        localStorage.setItem("vocaDecks", JSON.stringify(savedDecks));
+      }
+      // ==========================================
 
       // Kho từ mồi 500 từ
       const dummyDistractors = [
@@ -1102,11 +1219,18 @@
         }
 
         inputSection.style.display = "none";
+        renderPreviewHtml();
+      }
+
+      function renderPreviewHtml() {
+        const previewSection = document.getElementById("previewSection");
         previewSection.style.display = "block";
+        document.getElementById("dashboardSection").style.display = "none";
+        document.getElementById("inputSection").style.display = "none";
 
         let previewHtml = `
-          <h3>🔍 Xem trước & Chỉnh sửa nghĩa từ</h3>
-          <p style="color:#7f8c8d; font-size:14px; margin-bottom:15px;">AI đã tự động dịch nghĩa. Bạn có thể nhấn trực tiếp vào ô Nghĩa Tiếng Việt để chỉnh sửa lại theo ý mình trước khi học nhé!</p>
+          <h3>🔍 Xem trước & Chỉnh sửa nghĩa</h3>
+          <p style="color:#7f8c8d; font-size:14px; margin-bottom:15px;">Chỉnh sửa nghĩa tiếng Việt (nếu cần) trước khi bắt đầu học nhé!</p>
           <div class="preview-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px; padding-right:5px;">
         `;
 
@@ -1129,7 +1253,8 @@
             <button class="main-btn btn-quiz" onclick="startApp('quiz')">📝 Trắc Nghiệm</button>
             <button class="main-btn btn-spell" onclick="startApp('spell')">⌨️ Gõ Từ</button>
           </div>
-          <button class="speaker-btn" style="width:100%; margin-top:15px; justify-content:center; color:var(--danger);" onclick="goBackToInput()">⬅️ Quay lại nhập từ mới</button>
+          <button class="speaker-btn" style="width:100%; margin-top:15px; justify-content:center; color:var(--primary);" onclick="goBackToInput()">✍️ Quay lại nhập thêm từ</button>
+          <button class="speaker-btn" style="width:100%; margin-top:10px; justify-content:center; color:var(--danger);" onclick="goBackToDashboard()">🏠 Về Tủ Từ Vựng</button>
         `;
         previewSection.innerHTML = previewHtml;
       }
@@ -1138,16 +1263,31 @@
         if (preparedData[index]) preparedData[index].definition = value.trim();
       };
 
+      window.goBackToDashboard = () => {
+        document.getElementById("previewSection").style.display = "none";
+        document.getElementById("quizArea").innerHTML = "";
+        document.getElementById("statsArea").style.display = "none";
+        document.getElementById("progressContainer").style.display = "none";
+        if (savedDecks.length > 0) {
+          showDashboard();
+        } else {
+          showInputSection();
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+
       window.goBackToInput = () => {
         document.getElementById("inputSection").style.display = "block";
         document.getElementById("previewSection").style.display = "none";
         document.getElementById("quizArea").innerHTML = "";
         document.getElementById("statsArea").style.display = "none";
         document.getElementById("progressContainer").style.display = "none";
+        document.getElementById("dashboardSection").style.display = "none";
         window.scrollTo({ top: 0, behavior: "smooth" });
       };
 
       function startApp(mode) {
+        saveDeck(); // Lưu ngay vào LocalStorage trước khi học
         document.getElementById("previewSection").style.display = "none";
         const quizArea = document.getElementById("quizArea");
         const progressContainer = document.getElementById("progressContainer");
@@ -1162,7 +1302,7 @@
 
         quizArea.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 15px;">
-            <button class="speaker-btn" onclick="goBackToInput()" style="border-color:var(--primary); color:var(--primary-dark);">⬅️ Đổi chế độ / Thêm từ</button>
+            <button class="speaker-btn" onclick="renderPreviewHtml()" style="border-color:var(--primary); color:var(--primary-dark);">⬅️ Trở lại tùy chọn</button>
           </div>
         `;
 
@@ -1337,7 +1477,7 @@
 
         quizArea.innerHTML = `
           <div>
-            <button class="speaker-btn" onclick="goBackToInput()" style="margin-bottom: 20px; border-color:var(--primary); color:var(--primary-dark);">⬅️ Đổi chế độ / Thêm từ</button>
+            <button class="speaker-btn" onclick="renderPreviewHtml()" style="margin-bottom: 20px; border-color:var(--primary); color:var(--primary-dark);">⬅️ Trở lại tùy chọn</button>
           </div>
           <div class="flashcard-wrapper">
             <p style="color: #7f8c8d; font-weight: 600; margin-bottom: 10px;">✨ Chạm vào thẻ để lật</p>
@@ -1414,22 +1554,21 @@
           html += `<button class="main-btn btn-spell" style="margin-top:20px; width:100%;" onclick="redoMistakes('${mode}')">🔄 Ôn tập riêng các từ sai</button>`;
         }
 
-        html += `<button class="main-btn btn-quiz" style="margin-top:15px; width:100%;" onclick="goBackToInput()">Làm bài khác / Nhập từ mới</button>`;
+        html += `<button class="main-btn btn-quiz" style="margin-top:15px; width:100%;" onclick="goBackToDashboard()">Về tủ từ vựng / Làm bài khác</button>`;
         statsArea.innerHTML = html;
         statsArea.scrollIntoView({ behavior: "smooth" });
       }
 
-      // 🛠️ ĐÃ SỬA: Logic chạy lại từ sai mượt mà tự động
       window.redoMistakes = (mode) => {
-        // Gom các từ sai lại đưa vào ô input ẩn
-        document.getElementById("wordInput").value = mistakes
-          .map((err) => err.word)
-          .join("\n");
-        // Đóng bảng thống kê
+        let mistakeWords = mistakes.map((err) => err.word.toLowerCase());
+        preparedData = preparedData.filter((item) =>
+          mistakeWords.includes(item.word.toLowerCase()),
+        );
+
         document.getElementById("statsArea").style.display = "none";
         document.getElementById("quizArea").innerHTML = "";
-        // Kích hoạt lại quy trình dịch nghĩa & preview tự động luôn cho máu!
-        loadAndPreviewWords();
+
+        startApp(mode);
       };
     </script>
   </body>
