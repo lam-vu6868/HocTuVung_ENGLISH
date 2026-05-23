@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ôn Từ Vựng Đa Năng</title>
+    <title>Ôn Từ Vựng Đa Năng - UX Pro</title>
     <style>
       body {
         font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -71,6 +71,30 @@
         font-weight: bold;
         text-align: center;
         margin-top: 15px;
+      }
+
+      /* Thanh Tiến Trình - Progress Bar (MỚI) */
+      .progress-container {
+        position: sticky;
+        top: 0;
+        background: #f9f9f9;
+        padding: 10px 0;
+        z-index: 999;
+        display: none;
+      }
+      .progress-bar-bg {
+        width: 100%;
+        background-color: #e0e0e0;
+        height: 8px;
+        border-radius: 4px;
+        overflow: hidden;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      .progress-bar-fill {
+        height: 100%;
+        width: 0%;
+        background-color: #2ecc71;
+        transition: width 0.3s ease-in-out;
       }
 
       /* CSS cho Flashcard */
@@ -247,6 +271,38 @@
         pointer-events: none;
         opacity: 0.7;
       }
+
+      /* Khung giải thích trắc nghiệm */
+      .explanation-box {
+        margin-top: 15px;
+        padding: 12px 15px;
+        border-radius: 8px;
+        font-size: 15px;
+        display: none;
+        animation: fadeIn 0.3s ease-in-out;
+        line-height: 1.5;
+      }
+      .explanation-box.correct-bg {
+        background-color: #eafaf1;
+        border: 1px solid #2ecc71;
+        color: #27ae60;
+      }
+      .explanation-box.wrong-bg {
+        background-color: #fdedec;
+        border: 1px solid #e74c3c;
+        color: #c0392b;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
       .spell-group {
         display: flex;
         gap: 10px;
@@ -369,6 +425,12 @@
       Đang phân tích nghĩa và khâu phiên âm cụm từ, đợi xíu nhé... ⏳
     </div>
 
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+    </div>
+
     <div id="quizArea"></div>
     <div id="statsArea" class="stats-card"></div>
 
@@ -390,7 +452,6 @@
         window.speechSynthesis.speak(utterance);
       }
 
-      // Hàm lấy IPA cho một từ đơn lẻ từ API quốc tế
       async function fetchSingleWordIpa(singleWord) {
         try {
           let urlDict = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(singleWord)}`;
@@ -416,7 +477,7 @@
       }
 
       const rawVocab =
-        "quả táo, chạy bộ, bơi lội, thông minh, ngôi nhà, xinh đẹp, máy vi tính, bầu trời, hạnh phúc, công việc, buồn bã, chiếc xe, con mèo, uống nước, đọc sách, ngủ ngon, nấu ăn, đi du lịch, chăm chỉ, trường học, bóng đá, nghe nhạc, đồng hồ, nóng bức, lạnh lẽo, bệnh viện, cửa sổ, bài tập, thành công, tiền bạc, thức dậy, đi dạo, mua sắm, khóc lóc, cười to, tức giận, nhanh nhẹn, chậm chạp, mạnh mẽ, yếu đuối, ngon miệng, con chó, điện thoại, tivi, cái bàn, chiếc ghế, cửa ra vào, bức tranh, bóng rổ, quần vợt, cầu lông, áo sơ mi, quần dài, giày thể thao, mũ len, kính râm, bánh mì, cơm rang, phở bò, trà sữa, cà phê, nước ép, máy bay, tàu hỏa, xe buýt, xe đạp, đường phố, cây cối, hoa hồng, biển cả, núi non, dòng sông, mặt trời, mặt trăng, ngôi sao, mưa rơi, tuyết trắng, gió thổi, bão táp, mùa xuân, mùa hè, mùa thu, mùa đông, buổi sáng, buổi trưa, buổi tối, bạn bè, gia đình, bố mẹ, anh chị, thầy giáo, bác sĩ, cảnh sát, kỹ sư, nông dân, ca sĩ, diễn viên, vẽ tranh, chụp ảnh, nhảy múa, hát hò, nói chuyện, lắng nghe, viết thư, giải toán, lịch sử, địa lý, khoa học, nghệ thuật, sức khỏe, tương lai, quá khứ, hiện tại, tình yêu, hy vọng, niềm tin, sự thật, giả dối, nguy hiểm, an toàn, sạch sẽ, bẩn thỉu, ồn ào, yên tĩnh, đắt đỏ, rẻ tiền, dễ dàng, khó khăn, vui vẻ, thú vị, nhàm chán, mệt mỏi, khỏe mạnh, đói bụng, khát nước, sợ hãi, dũng cảm, ngạc nhiên, bí mật, chìa khóa, ví tiền, balo, sách vở, bút bi, thước kẻ, máy tính bảng, bàn phím, chuột máy tính, màn hình, pin dự phòng, tai nghe, bảo tàng, công viên, siêu thị, chợ, nhà hàng, quán cà phê, rạp chiếu phim, phòng gym, hồ bơi, sân bóng, sân bay, bến xe, nhà ga, khách sạn, bưu điện, ngân hàng, nhà thuốc, tiệm bánh, cắt tóc, trang điểm, quần áo, đồ trang sức, đồng hồ đeo tay, nước hoa, giày cao gót, dép lê, bình nước, cái bát, đôi đũa, cái thìa, cái nĩa, con dao, cái thớt, nồi cơm điện, lò vi sóng, tủ lạnh, máy giặt, máy lạnh, nhiệt kế, thuốc lá, cái chai";
+        "quả táo, chạy bộ, bơi lội, thông minh, ngôi nhà, xinh đẹp, máy vi tính, bầu trời, hạnh phúc, công việc, buồn bã, chiếc xe, con mèo, uống nước, đọc sách, ngủ ngon, nấu ăn, đi du lịch, chăm chỉ, trường học, bóng đá, nghe nhạc, đồng hồ, nóng bức, lạnh lẽo, bệnh viện, cửa sổ, bài tập, thành công, tiền bạc, thức dậy, đi dạo, mua sắm, khóc lóc, cười to, tức giận, nhanh nhẹn, chậm chạp, mạnh mẽ, yếu đuối, ngon miệng, con chó, điện thoại, tivi, cái bàn, chiếc ghế, cửa ra vào, bức tranh, bóng rổ, quần vợt, cầu lông, áo sơ mi, quần dài, giày thể thao, mũ len, kính râm, bánh mì, cơm rang, phở bò, trà sữa, cà phê, nước ép, máy bay, tàu hỏa, xe buýt, xe đạp, đường phố, cây cối, hoa hồng, biển cả, núi non, dòng sông, mặt trời, mặt trăng, ngôi sao, mưa rơi, tuyết trắng, gió thổi, bão táp, mùa xuân, mùa hè, mùa thu, mùa đông, buổi sáng, buổi trưa, buổi tối, bạn bè, gia định, bố mẹ, anh chị, thầy giáo, bác sĩ, cảnh sát, kỹ sư, nông dân, ca sĩ, diễn viên, vẽ tranh, chụp ảnh, nhảy múa, hát hò, nói chuyện, lắng nghe, viết thư, giải toán, lịch sử, địa lý, khoa học, nghệ thuật, sức khỏe, tương lai, quá khứ, hiện tại, tình yêu, hy vọng, niềm tin, sự thật, giả dối, nguy hiểm, an toàn, sạch sẽ, bẩn thỉu, ồn ào, yên tĩnh, đắt đỏ, rẻ tiền, dễ dàng, khó khăn, vui vẻ, thú vị, nhàm chán, mệt mỏi, khỏe mạnh, đói bụng, khát nước, sợ hãi, dũng cảm, ngạc nhiên, bí mật, chìa khóa, ví tiền, balo, sách vở, bút bi, thước kẻ, máy tính bảng, bàn phím, chuột máy tính, màn hình, pin dự phòng, tai nghe, bảo tàng, công viên, siêu thị, chợ, nhà hàng, quán cà phê, rạp chiếu phim, phòng gym, hồ bơi, sân bóng, sân bay, bến xe, nhà ga, khách sạn, bưu điện, ngân hàng, nhà thuốc, tiệm bánh, cắt tóc, trang điểm, quần áo, đồ trang sức, đồng hồ đeo tay, nước hoa, giày cao gót, dép lê, bình nước, cái bát, đôi đũa, cái thìa, cái nĩa, con dao, cái thớt, nồi cơm điện, lò vi sóng, tủ lạnh, máy giặt, máy lạnh, nhiệt kế, thuốc lá, cái chai";
       const dummyDistractors = rawVocab.split(", ");
 
       let totalQuestions = 0;
@@ -434,11 +495,18 @@
         const btnFlashcard = document.getElementById("btnFlashcard");
         const btnQuiz = document.getElementById("btnQuiz");
         const btnSpell = document.getElementById("btnSpell");
+        const progressContainer = document.getElementById("progressContainer");
+        const progressBar = document.getElementById("progressBar");
 
-        let words = input
-          .split(/[\n,]+/)
-          .map((w) => w.trim())
-          .filter((w) => w !== "");
+        // 🌟 TỐI ƯU UX 1: Tự động lọc từ trùng lặp bằng Set
+        let words = [
+          ...new Set(
+            input
+              .split(/[,\n\r]+/)
+              .map((w) => w.trim())
+              .filter((w) => w !== ""),
+          ),
+        ];
 
         if (words.length === 0) {
           alert("Vui lòng nhập ít nhất 1 từ!");
@@ -453,10 +521,17 @@
         btnQuiz.disabled = true;
         btnSpell.disabled = true;
 
+        // Cài đặt hiển thị thanh tiến trình
+        progressBar.style.width = "0%";
+        if (mode === "quiz" || mode === "spell") {
+          progressContainer.style.display = "block";
+        } else {
+          progressContainer.style.display = "none";
+        }
+
         let validData = [];
         for (let word of words) {
           try {
-            // 1. Dịch nghĩa cụm từ / từ đơn
             let urlTranslate = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(word)}`;
             let resTranslate = await fetch(urlTranslate);
             let translatedWord = word;
@@ -465,32 +540,27 @@
               translatedWord = data[0][0][0];
             }
 
-            // 2. Thuật toán tối ưu khâu nối phiên âm (IPA) cho Cụm Từ
             let ipa = "";
-            let subWords = word.split(/\s+/).filter((w) => w !== ""); // Tách cụm từ bằng khoảng trắng
+            let subWords = word.split(/\s+/).filter((w) => w !== "");
 
             if (subWords.length > 1) {
-              // Nếu là CỤM TỪ (ví dụ: look forward to)
               let ipaParts = [];
               for (let subWord of subWords) {
-                let cleanSub = subWord.replace(/[^a-zA-Z]/g, ""); // làm sạch ký tự lạ
+                let cleanSub = subWord.replace(/[^a-zA-Z]/g, "");
                 if (cleanSub) {
                   let subIpa = await fetchSingleWordIpa(cleanSub);
                   if (subIpa) {
-                    // Loại bỏ dấu gạch chéo / hoặc ngoặc vuông [ ] của từ đơn để chuẩn bị khâu nối
                     let cleanIpa = subIpa.replace(/[\/\[\]]/g, "");
                     ipaParts.push(cleanIpa);
                   } else {
-                    // Nếu từ phụ không có IPA (như từ "to"), giữ nguyên chữ thường để người dùng dễ nhìn
                     ipaParts.push(cleanSub.toLowerCase());
                   }
                 }
               }
               if (ipaParts.length > 0) {
-                ipa = "/" + ipaParts.join(" ") + "/"; // Khâu lại thành chuỗi IPA tổng
+                ipa = "/" + ipaParts.join(" ") + "/";
               }
             } else {
-              // Nếu là TỪ ĐƠN thông thường
               let singleIpa = await fetchSingleWordIpa(word);
               if (singleIpa) {
                 if (singleIpa.startsWith("[") && singleIpa.endsWith("]")) {
@@ -519,6 +589,7 @@
 
         if (validData.length === 0) {
           alert("Không thể dịch các từ bạn đã nhập. Vui lòng thử lại!");
+          progressContainer.style.display = "none";
           return;
         }
 
@@ -534,10 +605,16 @@
           correctAnswers = 0;
           mistakes = [];
 
+          const updateProgressBar = () => {
+            let percent = (answeredQuestions / totalQuestions) * 100;
+            progressBar.style.width = percent + "%";
+          };
+
           const checkCompletion = () => {
             if (answeredQuestions === totalQuestions) showStatistics(mode);
           };
 
+          // Chế độ Trắc nghiệm
           if (mode === "quiz") {
             const prefixLetters = ["A", "B", "C", "D"];
             validData.forEach((item, index) => {
@@ -574,22 +651,36 @@
                                 <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'us')">🇺🇸 🔊</button>
                             </div>
                             <div class="options-grid"></div>
+                            <div class="explanation-box"></div>
                         `;
 
               let grid = questionDiv.querySelector(".options-grid");
+              let explanationDiv =
+                questionDiv.querySelector(".explanation-box");
+
               options.forEach((opt, optIndex) => {
                 let optDiv = document.createElement("div");
                 optDiv.className = "option";
                 optDiv.innerText = `${prefixLetters[optIndex]}: ${opt.definition}`;
+
                 optDiv.onclick = function () {
                   if (optDiv.classList.contains("disabled")) return;
                   let allOptions = questionDiv.querySelectorAll(".option");
                   allOptions.forEach((el) => el.classList.add("disabled"));
                   answeredQuestions++;
+                  updateProgressBar(); // 🌟 TỐI ƯU UX 2: Chạy thanh tiến trình
+
+                  let ipaDisplay = item.ipa
+                    ? ` <span style="color:#7f8c8d;">${item.ipa}</span>`
+                    : "";
+                  explanationDiv.style.display = "block";
 
                   if (opt.definition === item.definition) {
                     optDiv.classList.add("correct");
                     correctAnswers++;
+
+                    explanationDiv.classList.add("correct-bg");
+                    explanationDiv.innerHTML = `🎉 <b>Tuyệt vời!</b> Từ <b>${item.word}</b>${ipaDisplay} chính xác có nghĩa là <b>"${item.definition}"</b>.`;
                   } else {
                     optDiv.classList.add("wrong");
                     allOptions.forEach((el) => {
@@ -601,6 +692,9 @@
                       correct: item.definition,
                       userAnswer: opt.definition,
                     });
+
+                    explanationDiv.classList.add("wrong-bg");
+                    explanationDiv.innerHTML = `❌ <b>Chưa chính xác!</b> Từ <b>${item.word}</b>${ipaDisplay} mang nghĩa đúng là <b>"${item.definition}"</b>.<br><i>(Bạn đã chọn sai nghĩa: "${opt.definition}")</i>`;
                   }
                   checkCompletion();
                 };
@@ -638,6 +732,7 @@
                 checkBtn.disabled = true;
                 speakerGroup.style.display = "block";
                 answeredQuestions++;
+                updateProgressBar(); // 🌟 TỐI ƯU UX 2: Chạy thanh tiến trình
 
                 if (userWord === item.word.toLowerCase()) {
                   msg.innerText = "🎉 Chính xác!";
@@ -667,6 +762,11 @@
                 }
               });
               quizArea.appendChild(questionDiv);
+
+              // 🌟 TỐI ƯU UX 3: Tự động focus vào ô nhập liệu đầu tiên
+              if (index === 0) {
+                setTimeout(() => inputField.focus(), 200);
+              }
             });
           }
         }
@@ -722,6 +822,7 @@
       };
 
       function showStatistics(mode) {
+        document.getElementById("progressContainer").style.display = "none"; // Ẩn thanh tiến trình khi xem kết quả
         const statsArea = document.getElementById("statsArea");
         statsArea.style.display = "block";
 
