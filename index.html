@@ -572,9 +572,156 @@
         transform: translateX(22px);
         content: "🌙";
       }
+
+      /* ✨ Custom Toast Notification CSS */
+      #toastContainer {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        pointer-events: none;
+      }
+      .toast {
+        min-width: 250px;
+        max-width: 350px;
+        padding: 16px 22px;
+        color: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+        font-weight: 700;
+        font-size: 15px;
+        line-height: 1.4;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      }
+      .toast.error {
+        background-color: var(--danger);
+        box-shadow: 0 4px 0 var(--danger-dark);
+      }
+      .toast.success {
+        background-color: var(--success);
+        box-shadow: 0 4px 0 var(--success-dark);
+      }
+      .toast.info {
+        background-color: var(--primary);
+        box-shadow: 0 4px 0 var(--primary-dark);
+      }
+
+      @keyframes slideInRight {
+        from {
+          transform: translateX(120%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      @keyframes fadeOutRight {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(120%);
+          opacity: 0;
+        }
+      }
+
+      /* ✨ Custom Confirm Modal */
+      .confirm-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10001;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+      .confirm-overlay.show {
+        opacity: 1;
+        pointer-events: all;
+      }
+      .confirm-modal {
+        background: #fff;
+        color: var(--text-color);
+        padding: 24px;
+        border-radius: 16px;
+        width: 90%;
+        max-width: 350px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        transform: scale(0.8);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        text-align: center;
+      }
+      body.dark-mode .confirm-modal {
+        background: #2d3748;
+      }
+      .confirm-overlay.show .confirm-modal {
+        transform: scale(1);
+      }
+      .confirm-modal h3 {
+        margin-top: 0;
+        font-size: 20px;
+        margin-bottom: 12px;
+      }
+      .confirm-modal p {
+        margin-bottom: 24px;
+        font-size: 16px;
+        opacity: 0.9;
+      }
+      .confirm-buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+      }
+      .btn-cancel {
+        background: #95a5a6;
+        box-shadow: 0 4px 0 #7f8c8d;
+      }
+      .btn-cancel:active {
+        box-shadow: none;
+        transform: translateY(4px);
+      }
     </style>
   </head>
   <body>
+    <!-- Container chứa thông báo (Toast) -->
+    <div id="toastContainer"></div>
+
+    <!-- Dialog Xác Nhận (Confirm) -->
+    <div id="confirmOverlay" class="confirm-overlay">
+      <div class="confirm-modal">
+        <h3>Xác nhận</h3>
+        <p id="confirmMessage">Bạn có chắc chắn?</p>
+        <div class="confirm-buttons">
+          <button id="btnConfirmCancel" class="main-btn btn-cancel">Hủy</button>
+          <button
+            id="btnConfirmOk"
+            class="main-btn"
+            style="
+              background: var(--danger);
+              box-shadow: 0 4px 0 var(--danger-dark);
+            "
+          >
+            Đồng ý
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Nút gạt Dark Mode -->
     <div class="theme-switch-wrapper">
       <label class="theme-switch" for="checkbox">
@@ -648,6 +795,43 @@
     <div id="statsArea" class="stats-card"></div>
 
     <script>
+      // 💡 Hàm hiển thị Toast Notification chuyên nghiệp thay cho alert()
+      function showToast(message, type = "error") {
+        let container = document.getElementById("toastContainer");
+        const toast = document.createElement("div");
+        toast.className = `toast ${type}`;
+
+        let icon = type === "error" ? "⚠️" : type === "success" ? "✅" : "ℹ️";
+        toast.innerHTML = `<span style="font-size: 20px;">${icon}</span> <span>${message}</span>`;
+        container.appendChild(toast);
+
+        // Tự động tắt sau 3.5s
+        setTimeout(() => {
+          toast.style.animation = "fadeOutRight 0.4s forwards";
+          setTimeout(() => toast.remove(), 400); // Chờ animation chạy xong rồi xóa element
+        }, 3500);
+      }
+
+      // 💡 Hàm hiển thị Confirm Modal chuyên nghiệp thay cho confirm()
+      function showConfirm(message, onConfirm) {
+        const overlay = document.getElementById("confirmOverlay");
+        const msgEl = document.getElementById("confirmMessage");
+        const btnCancel = document.getElementById("btnConfirmCancel");
+        const btnOk = document.getElementById("btnConfirmOk");
+
+        msgEl.textContent = message;
+        overlay.classList.add("show");
+
+        // Dọn dẹp event cũ (tránh bị gọi nhiều lần nếu mở đóng liên tục)
+        btnCancel.onclick = () => {
+          overlay.classList.remove("show");
+        };
+        btnOk.onclick = () => {
+          overlay.classList.remove("show");
+          onConfirm();
+        };
+      }
+
       // 🌙 Xử lý Theme (Dark Mode)
       function toggleTheme(e) {
         if (e.checked) {
@@ -767,12 +951,13 @@
       }
 
       function deleteDeck(id) {
-        if (confirm("Bạn có chắc muốn xóa bộ từ này khỏi máy?")) {
+        showConfirm("Bạn có chắc muốn xóa bộ từ này khỏi máy?", () => {
           savedDecks = savedDecks.filter((d) => d.id !== id);
           localStorage.setItem("vocaDecks", JSON.stringify(savedDecks));
           if (savedDecks.length > 0) showDashboard();
           else showInputSection();
-        }
+          showToast("Xóa bộ từ vựng thành công!", "success");
+        });
       }
 
       function playSelectedDeck(id) {
@@ -1336,8 +1521,9 @@
             d.id !== currentDeckId,
         );
         if (isDuplicate) {
-          alert(
-            `⚠️ Bộ từ mang tên "${finalDeckName}" đã tồn tại! Vui lòng đặt tên khác để không bị nhầm lẫn nhé.`,
+          showToast(
+            `Bộ từ mang tên "${finalDeckName}" đã tồn tại! Vui lòng làm tên khác.`,
+            "error",
           );
           document.getElementById("deckName").focus();
           return;
@@ -1357,7 +1543,7 @@
           ),
         ];
         if (words.length === 0) {
-          alert("Oops! Bạn quên nhập từ vựng rồi kìa!");
+          showToast("Oops! Bạn quên nhập từ vựng rồi kìa!", "error");
           return;
         }
 
@@ -1408,7 +1594,10 @@
         document.getElementById("btnLoad").disabled = false;
 
         if (preparedData.length === 0) {
-          alert("Không thể phân tích dữ liệu đầu vào. Thử lại nhé!");
+          showToast(
+            "Không thể phân tích dữ liệu đầu vào. Thử lại nhé!",
+            "error",
+          );
           return;
         }
 
@@ -1469,7 +1658,7 @@
           unanswered.classList.add("shake");
           setTimeout(() => unanswered.classList.remove("shake"), 400);
         } else {
-          alert("Hoan hô! Bạn đã hoàn thành tất cả các câu! 🎉");
+          showToast("Hoan hô! Bạn đã hoàn thành tất cả các câu!", "success");
         }
       };
 
