@@ -473,9 +473,116 @@
           gap: 5px;
         }
       }
+
+      /* 🌙 1. Dark Theme Variables & Styles */
+      body.dark-mode {
+        --bg-color: #1a202c;
+        --text-color: #e2e8f0;
+        background: #1a202c;
+      }
+      body.dark-mode .question-card,
+      body.dark-mode .preview-container,
+      body.dark-mode .stats-card,
+      body.dark-mode textarea,
+      body.dark-mode .spell-input,
+      body.dark-mode .preview-input {
+        background-color: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+      }
+      body.dark-mode div[style*="background: white"] {
+        background-color: #2d3748 !important;
+        border-color: #4a5568 !important;
+      }
+      body.dark-mode .option {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: #e2e8f0;
+      }
+      body.dark-mode .option:hover:not(.disabled) {
+        background: #4a5568;
+      }
+      body.dark-mode .flip-card-front {
+        background-color: #2d3748;
+        color: #e2e8f0;
+      }
+      body.dark-mode .speaker-btn {
+        background: #2d3748;
+        color: #e2e8f0;
+        border-color: #4a5568;
+      }
+      body.dark-mode .speaker-btn:hover {
+        background: #4a5568;
+      }
+      body.dark-mode .progress-container {
+        background: rgba(26, 32, 44, 0.9);
+      }
+      body.dark-mode p.subtitle {
+        color: #a0aec0;
+      }
+
+      /* ✨ Toggle Switch CSS */
+      .theme-switch-wrapper {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        align-items: center;
+        z-index: 1000;
+      }
+      .theme-switch {
+        display: inline-block;
+        height: 30px;
+        position: relative;
+        width: 54px;
+      }
+      .theme-switch input {
+        display: none;
+      }
+      .slider {
+        background-color: #cbd5e0;
+        bottom: 0;
+        cursor: pointer;
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: 0;
+        transition: 0.4s;
+        border-radius: 34px;
+      }
+      .slider:before {
+        background-color: white;
+        bottom: 3px;
+        content: "☀️";
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        height: 24px;
+        left: 4px;
+        position: absolute;
+        transition: 0.4s;
+        width: 24px;
+        border-radius: 50%;
+      }
+      input:checked + .slider {
+        background-color: var(--primary-dark);
+      }
+      input:checked + .slider:before {
+        transform: translateX(22px);
+        content: "🌙";
+      }
     </style>
   </head>
   <body>
+    <!-- Nút gạt Dark Mode -->
+    <div class="theme-switch-wrapper">
+      <label class="theme-switch" for="checkbox">
+        <input type="checkbox" id="checkbox" onchange="toggleTheme(this)" />
+        <div class="slider"></div>
+      </label>
+    </div>
+
     <!-- Giao diện Quản lý bộ từ -->
     <div
       id="dashboardSection"
@@ -541,6 +648,61 @@
     <div id="statsArea" class="stats-card"></div>
 
     <script>
+      // 🌙 Xử lý Theme (Dark Mode)
+      function toggleTheme(e) {
+        if (e.checked) {
+          document.body.classList.add("dark-mode");
+          localStorage.setItem("theme", "dark");
+        } else {
+          document.body.classList.remove("dark-mode");
+          localStorage.setItem("theme", "light");
+        }
+      }
+      if (localStorage.getItem("theme") === "dark") {
+        document.body.classList.add("dark-mode");
+        document.getElementById("checkbox").checked = true;
+      }
+
+      // 🎵 Web Audio API cho Sound Effects (SFX)
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      function playSFX(type) {
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        if (type === "correct") {
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // Node C5
+          osc.frequency.exponentialRampToValueAtTime(
+            1046.5,
+            audioCtx.currentTime + 0.1,
+          ); // Vuốt lên
+          gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioCtx.currentTime + 0.4,
+          );
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.4);
+        } else {
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(150, audioCtx.currentTime); // Âm trầm
+          osc.frequency.exponentialRampToValueAtTime(
+            100,
+            audioCtx.currentTime + 0.2,
+          ); // Vuốt xuống
+          gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(
+            0.01,
+            audioCtx.currentTime + 0.3,
+          );
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.3);
+        }
+      }
+
       if ("speechSynthesis" in window) {
         window.speechSynthesis.getVoices();
         window.speechSynthesis.onvoiceschanged = () =>
@@ -1380,12 +1542,14 @@
                   explanationDiv.style.display = "block";
 
                   if (opt.definition === item.definition) {
+                    playSFX("correct");
                     optDiv.classList.add("correct");
                     correctAnswers++;
                     explanationDiv.innerHTML = `🎉 <b>Chính xác!</b> Từ <b>"${item.word}"</b> có nghĩa là <b>"${item.definition}"</b>.`;
                     explanationDiv.style.background = "#eafaf1";
                     explanationDiv.style.color = "var(--success-dark)";
                   } else {
+                    playSFX("wrong");
                     optDiv.classList.add("wrong");
                     questionDiv.classList.add("shake");
                     questionDiv.style.borderColor = "var(--danger)";
@@ -1437,6 +1601,7 @@
                 explanationDiv.style.display = "block";
 
                 if (userWord === item.word.toLowerCase()) {
+                  playSFX("correct");
                   correctAnswers++;
                   inputField.style.borderColor = "var(--success)";
                   inputField.style.background = "#eafaf1";
@@ -1444,6 +1609,7 @@
                   explanationDiv.style.background = "#eafaf1";
                   explanationDiv.style.color = "var(--success-dark)";
                 } else {
+                  playSFX("wrong");
                   questionDiv.classList.add("shake");
                   questionDiv.style.borderColor = "var(--danger)";
                   inputField.style.borderColor = "var(--danger)";
