@@ -27,13 +27,16 @@
         font-size: 16px;
         resize: vertical;
       }
+
       .btn-group {
         display: flex;
         gap: 10px;
         margin-top: 10px;
+        flex-wrap: wrap;
       }
       .main-btn {
         flex: 1;
+        min-width: 120px;
         padding: 12px;
         color: white;
         border: none;
@@ -42,6 +45,12 @@
         font-size: 16px;
         font-weight: bold;
         transition: 0.2s;
+      }
+      .btn-flashcard {
+        background-color: #f39c12;
+      }
+      .btn-flashcard:hover {
+        background-color: #e67e22;
       }
       .btn-quiz {
         background-color: #3498db;
@@ -63,6 +72,131 @@
         text-align: center;
         margin-top: 15px;
       }
+
+      /* CSS cho Flashcard */
+      .flashcard-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 20px;
+      }
+      .flip-card {
+        background-color: transparent;
+        width: 100%;
+        max-width: 400px;
+        height: 260px;
+        perspective: 1000px;
+        cursor: pointer;
+      }
+      .flip-card-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        text-align: center;
+        transition: transform 0.6s;
+        transform-style: preserve-3d;
+        border-radius: 15px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      }
+      .flip-card.flipped .flip-card-inner {
+        transform: rotateY(180deg);
+      }
+      .flip-card-front,
+      .flip-card-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        border-radius: 15px;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+      .flip-card-front {
+        background-color: #ffffff;
+        color: #2c3e50;
+        border: 2px solid #f39c12;
+      }
+      .flip-card-back {
+        background-color: #f39c12;
+        color: white;
+        transform: rotateY(180deg);
+      }
+      .fc-word {
+        font-size: 34px;
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #d35400;
+        word-break: break-word;
+      }
+      .fc-ipa {
+        font-size: 22px;
+        color: #7f8c8d;
+        margin-bottom: 20px;
+        font-family: "Segoe UI", Arial, sans-serif;
+        letter-spacing: 1px;
+        min-height: 26px;
+        word-break: break-word;
+        padding: 0 10px;
+      }
+      .fc-def {
+        font-size: 30px;
+        font-weight: bold;
+        word-break: break-word;
+      }
+      .fc-audio-group {
+        display: flex;
+        gap: 15px;
+        margin-top: 10px;
+      }
+      .fc-speaker {
+        background: #f1f2f6;
+        border: 1px solid #ccc;
+        padding: 10px 20px;
+        border-radius: 30px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: bold;
+        color: #2c3e50;
+        transition: 0.2s;
+      }
+      .fc-speaker:hover {
+        background: #dfe4ea;
+        transform: scale(1.05);
+      }
+      .fc-controls {
+        display: flex;
+        align-items: center;
+        gap: 25px;
+        margin-top: 25px;
+      }
+      .fc-nav-btn {
+        padding: 10px 20px;
+        background: #2c3e50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 16px;
+        transition: 0.2s;
+      }
+      .fc-nav-btn:hover:not(:disabled) {
+        background: #1a252f;
+      }
+      .fc-nav-btn:disabled {
+        background: #bdc3c7;
+        cursor: not-allowed;
+      }
+      .fc-counter {
+        font-size: 18px;
+        font-weight: bold;
+        color: #2c3e50;
+      }
+
       .question-card {
         background: white;
         border: 1px solid #ddd;
@@ -81,7 +215,6 @@
         flex-wrap: wrap;
         gap: 10px;
       }
-
       .options-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -114,7 +247,6 @@
         pointer-events: none;
         opacity: 0.7;
       }
-
       .spell-group {
         display: flex;
         gap: 10px;
@@ -136,15 +268,11 @@
         font-weight: bold;
         cursor: pointer;
       }
-      .spell-btn:hover {
-        background-color: #27ae60;
-      }
       .result-msg {
         margin-top: 10px;
         font-size: 16px;
         font-weight: bold;
       }
-
       .speaker-btn {
         background-color: #f1f2f6;
         border: 1px solid #ccc;
@@ -156,11 +284,6 @@
         align-items: center;
         gap: 5px;
       }
-      .speaker-btn:hover {
-        background-color: #dfe4ea;
-        transform: scale(1.05);
-      }
-
       .stats-card {
         background: #fff3cd;
         border: 2px solid #ffc107;
@@ -212,21 +335,24 @@
     </style>
   </head>
   <body>
-    <h2>Ôn Tập Từ Vựng Đa Năng</h2>
+    <h2>💡 Ôn Tập Từ Vựng Đa Năng</h2>
     <p>
-      Nhập từ tiếng Anh bên dưới.
-      <b>Chỉ cần copy cột từ vựng dán vô ô dưới.</b>
+      Nhập từ đơn hoặc cụm từ tiếng Anh bên dưới. Hệ thống sẽ tự động phân tích
+      phiên âm và nghĩa nhé!
     </p>
     <textarea
       id="wordInput"
-      placeholder="Ví dụ:
-get up
-look forward to
-give up 
-take care of"
+      placeholder="Ví dụ: hello, football, get up, look forward to"
     ></textarea>
 
     <div class="btn-group">
+      <button
+        class="main-btn btn-flashcard"
+        id="btnFlashcard"
+        onclick="startApp('flashcard')"
+      >
+        🗂️ Lật Thẻ
+      </button>
       <button class="main-btn btn-quiz" id="btnQuiz" onclick="startApp('quiz')">
         📝 Trắc Nghiệm
       </button>
@@ -239,7 +365,9 @@ take care of"
       </button>
     </div>
 
-    <div id="loading">Đang xử lý dữ liệu, bạn đợi xíu nhé... ⏳</div>
+    <div id="loading">
+      Đang phân tích nghĩa và khâu phiên âm cụm từ, đợi xíu nhé... ⏳
+    </div>
 
     <div id="quizArea"></div>
     <div id="statsArea" class="stats-card"></div>
@@ -262,21 +390,48 @@ take care of"
         window.speechSynthesis.speak(utterance);
       }
 
-      // Kho hơn 500 từ mồi siêu đa dạng
+      // Hàm lấy IPA cho một từ đơn lẻ từ API quốc tế
+      async function fetchSingleWordIpa(singleWord) {
+        try {
+          let urlDict = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(singleWord)}`;
+          let resDict = await fetch(urlDict);
+          if (resDict.ok) {
+            let dictData = await resDict.json();
+            let phonetics = dictData[0]?.phonetics || [];
+
+            let broadIPA = phonetics.find(
+              (p) => p.text && p.text.includes("/"),
+            );
+            if (broadIPA) return broadIPA.text;
+
+            let validP = phonetics.find((p) => p.text);
+            if (validP) return validP.text;
+
+            if (dictData[0]?.phonetic) return dictData[0].phonetic;
+          }
+        } catch (e) {
+          console.log("Không tìm thấy IPA cho từ đơn: " + singleWord);
+        }
+        return "";
+      }
+
       const rawVocab =
-        "quả táo, chạy bộ, bơi lội, thông minh, ngôi nhà, xinh đẹp, máy vi tính, bầu trời, hạnh phúc, công việc, buồn bã, chiếc xe, con mèo, uống nước, đọc sách, ngủ ngon, nấu ăn, đi du lịch, chăm chỉ, trường học, bóng đá, nghe nhạc, đồng hồ, nóng bức, lạnh lẽo, bệnh viện, cửa sổ, bài tập, thành công, tiền bạc, thức dậy, đi dạo, mua sắm, khóc lóc, cười to, tức giận, nhanh nhẹn, chậm chạp, mạnh mẽ, yếu đuối, ngon miệng, con chó, điện thoại, tivi, cái bàn, chiếc ghế, cửa ra vào, bức tranh, bóng rổ, quần vợt, cầu lông, áo sơ mi, quần dài, giày thể thao, mũ len, kính râm, bánh mì, cơm rang, phở bò, trà sữa, cà phê, nước ép, máy bay, tàu hỏa, xe buýt, xe đạp, đường phố, cây cối, hoa hồng, biển cả, núi non, dòng sông, mặt trời, mặt trăng, ngôi sao, mưa rơi, tuyết trắng, gió thổi, bão táp, mùa xuân, mùa hè, mùa thu, mùa đông, buổi sáng, buổi trưa, buổi tối, bạn bè, gia đình, bố mẹ, anh chị, thầy giáo, bác sĩ, cảnh sát, kỹ sư, nông dân, ca sĩ, diễn viên, vẽ tranh, chụp ảnh, nhảy múa, hát hò, nói chuyện, lắng nghe, viết thư, giải toán, lịch sử, địa lý, khoa học, nghệ thuật, sức khỏe, tương lai, quá khứ, hiện tại, tình yêu, hy vọng, niềm tin, sự thật, giả dối, nguy hiểm, an toàn, sạch sẽ, bẩn thỉu, ồn ào, yên tĩnh, đắt đỏ, rẻ tiền, dễ dàng, khó khăn, vui vẻ, thú vị, nhàm chán, mệt mỏi, khỏe mạnh, đói bụng, khát nước, sợ hãi, dũng cảm, ngạc nhiên, bí mật, chìa khóa, ví tiền, balo, sách vở, bút bi, thước kẻ, máy tính bảng, bàn phím, chuột máy tính, màn hình, pin dự phòng, tai nghe, bảo tàng, công viên, siêu thị, chợ, nhà hàng, quán cà phê, rạp chiếu phim, phòng gym, hồ bơi, sân bóng, sân bay, bến xe, nhà ga, khách sạn, bưu điện, ngân hàng, nhà thuốc, tiệm bánh, cắt tóc, trang điểm, quần áo, đồ trang sức, đồng hồ đeo tay, nước hoa, giày cao gót, dép lê, bình nước, cái bát, đôi đũa, cái thìa, cái nĩa, con dao, cái thớt, nồi cơm điện, lò vi sóng, tủ lạnh, máy giặt, máy lạnh, nhiệt kế, thuốc lá, cái chai, con sư tử, con hổ, con voi, con khỉ, con rắn, chim cánh cụt, cá heo, cá mập, đại bàng, rừng rậm, sa mạc, vũ trụ, phi hành gia, tàu vũ trụ, người ngoài hành tinh, ma thuật, kiếm sĩ, rồng, lâu đài, phù thủy, siêu anh hùng, quái vật, phép thuật, chiến tranh, hòa bình, quân đội, vũ khí, súng ống, bom mìn, chiến hạm, xe tăng, trực thăng, cứu hỏa, xe cứu thương, tai nạn, thảm họa, động đất, sóng thần, núi lửa, lốc xoáy, hạn hán, lũ lụt, ô nhiễm, rác thải, tái chế, bảo vệ, tiêu diệt, xây dựng, phá hủy, sáng tạo, phát minh, khám phá, tìm kiếm, giấu giếm, trộm cắp, cảnh giác, ngủ gật, mơ mộng, tỉnh táo, say xỉn, thuốc men, phẫu thuật, nha sĩ, nhổ răng, đau đầu, đau bụng, sổ mũi, ho, sốt, vi khuẩn, virus, kháng sinh, tiêm phòng, vắc xin, nhà khoa học, phòng thí nghiệm, kính hiển vi, ống nghiệm, hóa chất, vật lý, sinh học, toán học, văn học, thơ ca, tiểu thuyết, truyện tranh, báo chí, tạp chí, tin tức, phỏng vấn, nhà báo, nhiếp ảnh gia, đạo diễn, kịch bản, sân khấu, ánh sáng, âm thanh, micro, loa, đàn guitar, đàn piano, trống, sáo, nhạc cổ điển, nhạc pop, nhạc rock, nhạc rap, khiêu vũ, múa bale, võ thuật, karate, judo, taekwondo, quyền anh, bơi nghệ thuật, trượt băng, trượt tuyết, leo núi, cắm trại, câu cá, săn bắn, hái lượm, nông trại, trồng trọt, chăn nuôi, thu hoạch, cày cấy, máy kéo, phân bón, hạt giống, tưới nước, ánh sáng mặt trời, bóng râm, buổi hoàng hôn, buổi bình minh, sương mù, mây đen, sấm sét, cầu vồng, bãi biển, cát trắng, vỏ sò, san hô, hải cẩu, rùa biển, tôm hùm, cua hoàng đế, mực ống, bạch tuộc, ngọc trai, kho báu, hải tặc, la bàn, bản đồ, thám hiểm, rừng nhiệt đới, cây cổ thụ, dây leo, hoa lan, hoa cúc, hoa mai, hoa đào, hoa sen, lá cây, cành cây, rễ cây, quả chuối, quả cam, quả xoài, quả dưa hấu, quả nho, dâu tây, việt quất, quả dứa, quả dừa, quả chanh, quả ớt, hành tây, tỏi, gừng, khoai tây, cà chua, cà rốt, bắp cải, rau muống, nấm, thịt heo, thịt gà, thịt bò, cá nướng, tôm luộc, lẩu thái, bún chả, nem rán, bánh cuốn, bánh xèo, gỏi cuốn, nước mắm, tương ớt, muối tiêu, đường, bột ngọt, dầu ăn, giấm, mật ong, bơ, pho mát, sữa chua, kem, sô cô la, kẹo mút, bánh quy, bánh kem, sinh nhật, đám cưới, lễ hội, năm mới, giáng sinh, halloween, trung thu, quà tặng, bóng bay, pháo hoa, nến, nhẫn cưới, váy cưới, comple, cravat, giày da, tất, quần lót, áo lót, đồ bơi, áo khoác, áo mưa, ô dù, găng tay, khăn quàng cổ, nón lá, túi xách, vali, hộ chiếu, visa, vé máy bay, hành lý, hải quan, tiếp viên hàng không, phi công, buồng lái, cánh quạt, động cơ, lốp xe, vô lăng, phanh xe, còi xe, biển báo, đèn giao thông, ngã tư, vỉa hè, cầu vượt, hầm chui, đường cao tốc, biển số xe, bằng lái xe, phạt nguội, kẹt xe, tai nạn giao thông, bảo hiểm, thuế, ngân sách, lương, thưởng, thăng chức, sa thải, phỏng vấn xin việc, hồ sơ, đồng nghiệp, sếp, khách hàng, hợp đồng, lợi nhuận, thua lỗ, phá sản, đầu tư, cổ phiếu, chứng khoán, tiền điện tử, bất động sản, vay vốn, trả nợ, tiết kiệm, ATM, thẻ tín dụng, chuyển khoản, mật khẩu, tài khoản, đăng nhập, đăng xuất, tải xuống, tải lên, cài đặt, xóa bỏ, cập nhật, phần mềm, phần cứng, trí tuệ nhân tạo, robot, thực tế ảo, mạng xã hội, tin nhắn, bình luận, chia sẻ, thích, theo dõi";
+        "quả táo, chạy bộ, bơi lội, thông minh, ngôi nhà, xinh đẹp, máy vi tính, bầu trời, hạnh phúc, công việc, buồn bã, chiếc xe, con mèo, uống nước, đọc sách, ngủ ngon, nấu ăn, đi du lịch, chăm chỉ, trường học, bóng đá, nghe nhạc, đồng hồ, nóng bức, lạnh lẽo, bệnh viện, cửa sổ, bài tập, thành công, tiền bạc, thức dậy, đi dạo, mua sắm, khóc lóc, cười to, tức giận, nhanh nhẹn, chậm chạp, mạnh mẽ, yếu đuối, ngon miệng, con chó, điện thoại, tivi, cái bàn, chiếc ghế, cửa ra vào, bức tranh, bóng rổ, quần vợt, cầu lông, áo sơ mi, quần dài, giày thể thao, mũ len, kính râm, bánh mì, cơm rang, phở bò, trà sữa, cà phê, nước ép, máy bay, tàu hỏa, xe buýt, xe đạp, đường phố, cây cối, hoa hồng, biển cả, núi non, dòng sông, mặt trời, mặt trăng, ngôi sao, mưa rơi, tuyết trắng, gió thổi, bão táp, mùa xuân, mùa hè, mùa thu, mùa đông, buổi sáng, buổi trưa, buổi tối, bạn bè, gia đình, bố mẹ, anh chị, thầy giáo, bác sĩ, cảnh sát, kỹ sư, nông dân, ca sĩ, diễn viên, vẽ tranh, chụp ảnh, nhảy múa, hát hò, nói chuyện, lắng nghe, viết thư, giải toán, lịch sử, địa lý, khoa học, nghệ thuật, sức khỏe, tương lai, quá khứ, hiện tại, tình yêu, hy vọng, niềm tin, sự thật, giả dối, nguy hiểm, an toàn, sạch sẽ, bẩn thỉu, ồn ào, yên tĩnh, đắt đỏ, rẻ tiền, dễ dàng, khó khăn, vui vẻ, thú vị, nhàm chán, mệt mỏi, khỏe mạnh, đói bụng, khát nước, sợ hãi, dũng cảm, ngạc nhiên, bí mật, chìa khóa, ví tiền, balo, sách vở, bút bi, thước kẻ, máy tính bảng, bàn phím, chuột máy tính, màn hình, pin dự phòng, tai nghe, bảo tàng, công viên, siêu thị, chợ, nhà hàng, quán cà phê, rạp chiếu phim, phòng gym, hồ bơi, sân bóng, sân bay, bến xe, nhà ga, khách sạn, bưu điện, ngân hàng, nhà thuốc, tiệm bánh, cắt tóc, trang điểm, quần áo, đồ trang sức, đồng hồ đeo tay, nước hoa, giày cao gót, dép lê, bình nước, cái bát, đôi đũa, cái thìa, cái nĩa, con dao, cái thớt, nồi cơm điện, lò vi sóng, tủ lạnh, máy giặt, máy lạnh, nhiệt kế, thuốc lá, cái chai";
       const dummyDistractors = rawVocab.split(", ");
 
       let totalQuestions = 0;
       let answeredQuestions = 0;
       let correctAnswers = 0;
       let mistakes = [];
+      let flashcardData = [];
+      let currentCardIndex = 0;
 
       async function startApp(mode) {
         const input = document.getElementById("wordInput").value;
         const loading = document.getElementById("loading");
         const quizArea = document.getElementById("quizArea");
         const statsArea = document.getElementById("statsArea");
+        const btnFlashcard = document.getElementById("btnFlashcard");
         const btnQuiz = document.getElementById("btnQuiz");
         const btnSpell = document.getElementById("btnSpell");
 
@@ -294,33 +449,71 @@ take care of"
         quizArea.innerHTML = "";
         statsArea.style.display = "none";
         statsArea.innerHTML = "";
+        btnFlashcard.disabled = true;
         btnQuiz.disabled = true;
         btnSpell.disabled = true;
 
         let validData = [];
         for (let word of words) {
           try {
-            let url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(word)}`;
-            let response = await fetch(url);
-            if (response.ok) {
-              let data = await response.json();
-              let translatedWord = data[0][0][0];
-              if (
-                translatedWord &&
-                translatedWord.toLowerCase() !== word.toLowerCase()
-              ) {
-                validData.push({
-                  word: word.toLowerCase(),
-                  definition: translatedWord,
-                });
+            // 1. Dịch nghĩa cụm từ / từ đơn
+            let urlTranslate = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(word)}`;
+            let resTranslate = await fetch(urlTranslate);
+            let translatedWord = word;
+            if (resTranslate.ok) {
+              let data = await resTranslate.json();
+              translatedWord = data[0][0][0];
+            }
+
+            // 2. Thuật toán tối ưu khâu nối phiên âm (IPA) cho Cụm Từ
+            let ipa = "";
+            let subWords = word.split(/\s+/).filter((w) => w !== ""); // Tách cụm từ bằng khoảng trắng
+
+            if (subWords.length > 1) {
+              // Nếu là CỤM TỪ (ví dụ: look forward to)
+              let ipaParts = [];
+              for (let subWord of subWords) {
+                let cleanSub = subWord.replace(/[^a-zA-Z]/g, ""); // làm sạch ký tự lạ
+                if (cleanSub) {
+                  let subIpa = await fetchSingleWordIpa(cleanSub);
+                  if (subIpa) {
+                    // Loại bỏ dấu gạch chéo / hoặc ngoặc vuông [ ] của từ đơn để chuẩn bị khâu nối
+                    let cleanIpa = subIpa.replace(/[\/\[\]]/g, "");
+                    ipaParts.push(cleanIpa);
+                  } else {
+                    // Nếu từ phụ không có IPA (như từ "to"), giữ nguyên chữ thường để người dùng dễ nhìn
+                    ipaParts.push(cleanSub.toLowerCase());
+                  }
+                }
+              }
+              if (ipaParts.length > 0) {
+                ipa = "/" + ipaParts.join(" ") + "/"; // Khâu lại thành chuỗi IPA tổng
+              }
+            } else {
+              // Nếu là TỪ ĐƠN thông thường
+              let singleIpa = await fetchSingleWordIpa(word);
+              if (singleIpa) {
+                if (singleIpa.startsWith("[") && singleIpa.endsWith("]")) {
+                  singleIpa = "/" + singleIpa.slice(1, -1) + "/";
+                }
+                ipa = singleIpa;
               }
             }
+
+            if (translatedWord.toLowerCase() !== word.toLowerCase()) {
+              validData.push({
+                word: word,
+                definition: translatedWord,
+                ipa: ipa,
+              });
+            }
           } catch (error) {
-            console.log(`Lỗi khi dịch từ: ${word}`);
+            console.log(`Lỗi khi xử lý từ: ${word}`);
           }
         }
 
         loading.style.display = "none";
+        btnFlashcard.disabled = false;
         btnQuiz.disabled = false;
         btnSpell.disabled = false;
 
@@ -329,159 +522,204 @@ take care of"
           return;
         }
 
-        // --- ĐÂY CHÍNH LÀ ĐOẠN XÁO TRỘN CÂU HỎI ---
-        // Nó sẽ xáo trộn ngay từ ban đầu cho toàn bộ validData
         validData = validData.sort(() => 0.5 - Math.random());
 
-        totalQuestions = validData.length;
-        answeredQuestions = 0;
-        correctAnswers = 0;
-        mistakes = [];
+        if (mode === "flashcard") {
+          flashcardData = validData;
+          currentCardIndex = 0;
+          renderFlashcard();
+        } else {
+          totalQuestions = validData.length;
+          answeredQuestions = 0;
+          correctAnswers = 0;
+          mistakes = [];
 
-        const checkCompletion = () => {
-          if (answeredQuestions === totalQuestions) {
-            showStatistics(mode);
-          }
-        };
+          const checkCompletion = () => {
+            if (answeredQuestions === totalQuestions) showStatistics(mode);
+          };
 
-        if (mode === "quiz") {
-          const prefixLetters = ["A", "B", "C", "D"];
-          validData.forEach((item, index) => {
-            let otherValidDefinitions = validData
-              .filter((v) => v.word !== item.word)
-              .map((v) => v.definition);
-            let combinedDistractors = [
-              ...otherValidDefinitions,
-              ...dummyDistractors,
-            ];
-            let uniqueSafeDistractors = [
-              ...new Set(combinedDistractors),
-            ].filter((d) => d.toLowerCase() !== item.definition.toLowerCase());
+          if (mode === "quiz") {
+            const prefixLetters = ["A", "B", "C", "D"];
+            validData.forEach((item, index) => {
+              let otherValidDefinitions = validData
+                .filter((v) => v.word !== item.word)
+                .map((v) => v.definition);
+              let combinedDistractors = [
+                ...otherValidDefinitions,
+                ...dummyDistractors,
+              ];
+              let uniqueSafeDistractors = [
+                ...new Set(combinedDistractors),
+              ].filter(
+                (d) => d.toLowerCase() !== item.definition.toLowerCase(),
+              );
 
-            let wrongOptionsRaw = uniqueSafeDistractors
-              .sort(() => 0.5 - Math.random())
-              .slice(0, 3);
-            let wrongOptions = wrongOptionsRaw.map((d) => ({ definition: d }));
+              let wrongOptionsRaw = uniqueSafeDistractors
+                .sort(() => 0.5 - Math.random())
+                .slice(0, 3);
+              let wrongOptions = wrongOptionsRaw.map((d) => ({
+                definition: d,
+              }));
 
-            let options = [item, ...wrongOptions].sort(
-              () => 0.5 - Math.random(),
-            );
+              let options = [item, ...wrongOptions].sort(
+                () => 0.5 - Math.random(),
+              );
 
-            let questionDiv = document.createElement("div");
-            questionDiv.className = "question-card";
+              let questionDiv = document.createElement("div");
+              questionDiv.className = "question-card";
+              questionDiv.innerHTML = `
+                            <div class="question-text">
+                                <span>Câu ${index + 1}: <b>"${item.word}"</b> có nghĩa là gì?</span>
+                                <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'uk')">🇬🇧 🔊</button>
+                                <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'us')">🇺🇸 🔊</button>
+                            </div>
+                            <div class="options-grid"></div>
+                        `;
 
-            questionDiv.innerHTML = `
-                        <div class="question-text">
-                            <span>Câu ${index + 1}: <b>"${item.word}"</b> có nghĩa là gì?</span>
-                            <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'uk')">🇬🇧 🔊</button>
-                            <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'us')">🇺🇸 🔊</button>
-                        </div>
-                        <div class="options-grid"></div>
-                    `;
+              let grid = questionDiv.querySelector(".options-grid");
+              options.forEach((opt, optIndex) => {
+                let optDiv = document.createElement("div");
+                optDiv.className = "option";
+                optDiv.innerText = `${prefixLetters[optIndex]}: ${opt.definition}`;
+                optDiv.onclick = function () {
+                  if (optDiv.classList.contains("disabled")) return;
+                  let allOptions = questionDiv.querySelectorAll(".option");
+                  allOptions.forEach((el) => el.classList.add("disabled"));
+                  answeredQuestions++;
 
-            let grid = questionDiv.querySelector(".options-grid");
-            options.forEach((opt, optIndex) => {
-              let optDiv = document.createElement("div");
-              optDiv.className = "option";
-              optDiv.innerText = `${prefixLetters[optIndex]}: ${opt.definition}`;
+                  if (opt.definition === item.definition) {
+                    optDiv.classList.add("correct");
+                    correctAnswers++;
+                  } else {
+                    optDiv.classList.add("wrong");
+                    allOptions.forEach((el) => {
+                      if (el.innerText.includes(item.definition))
+                        el.classList.add("correct");
+                    });
+                    mistakes.push({
+                      question: `Từ "${item.word}"`,
+                      correct: item.definition,
+                      userAnswer: opt.definition,
+                    });
+                  }
+                  checkCompletion();
+                };
+                grid.appendChild(optDiv);
+              });
+              quizArea.appendChild(questionDiv);
+            });
+          } else if (mode === "spell") {
+            validData.forEach((item, index) => {
+              let questionDiv = document.createElement("div");
+              questionDiv.className = "question-card";
+              questionDiv.innerHTML = `
+                            <div class="question-text">Câu ${index + 1}: Từ/Cụm từ nào có nghĩa là <b>"${item.definition}"</b>?</div>
+                            <div class="spell-group">
+                                <input type="text" class="spell-input" placeholder="Gõ từ tiếng Anh vào đây...">
+                                <button class="spell-btn">Kiểm tra</button>
+                            </div>
+                            <div class="result-msg"></div>
+                            <div class="speaker-group" style="display: none; margin-top: 10px;">
+                                <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'uk')">🇬🇧 Nghe lại</button>
+                                <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'us')">🇺🇸 Nghe lại</button>
+                            </div>
+                        `;
 
-              optDiv.onclick = function () {
-                if (optDiv.classList.contains("disabled")) return;
+              let inputField = questionDiv.querySelector(".spell-input");
+              let checkBtn = questionDiv.querySelector(".spell-btn");
+              let msg = questionDiv.querySelector(".result-msg");
+              let speakerGroup = questionDiv.querySelector(".speaker-group");
 
-                let allOptions = questionDiv.querySelectorAll(".option");
-                allOptions.forEach((el) => el.classList.add("disabled"));
+              const checkAnswer = () => {
+                let userWord = inputField.value.trim().toLowerCase();
+                if (!userWord) return;
 
+                inputField.disabled = true;
+                checkBtn.disabled = true;
+                speakerGroup.style.display = "block";
                 answeredQuestions++;
 
-                if (opt.definition === item.definition) {
-                  optDiv.classList.add("correct");
+                if (userWord === item.word.toLowerCase()) {
+                  msg.innerText = "🎉 Chính xác!";
+                  msg.style.color = "#2ecc71";
+                  inputField.style.borderColor = "#2ecc71";
+                  inputField.style.backgroundColor = "#eafaf1";
                   correctAnswers++;
                 } else {
-                  optDiv.classList.add("wrong");
-                  allOptions.forEach((el) => {
-                    if (el.innerText.includes(item.definition))
-                      el.classList.add("correct");
-                  });
-
+                  msg.innerHTML = `❌ Sai rồi! Đáp án đúng là: <b>${item.word}</b>`;
+                  msg.style.color = "#e74c3c";
+                  inputField.style.borderColor = "#e74c3c";
+                  inputField.style.backgroundColor = "#fdedec";
                   mistakes.push({
-                    question: `Từ "${item.word}"`,
-                    correct: item.definition,
-                    userAnswer: opt.definition,
+                    question: `Nghĩa là "${item.definition}"`,
+                    correct: item.word,
+                    userAnswer: userWord,
                   });
                 }
                 checkCompletion();
               };
-              grid.appendChild(optDiv);
+
+              checkBtn.onclick = checkAnswer;
+              inputField.addEventListener("keypress", function (event) {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  checkAnswer();
+                }
+              });
+              quizArea.appendChild(questionDiv);
             });
-            quizArea.appendChild(questionDiv);
-          });
-        } else if (mode === "spell") {
-          // Đã bỏ biến shuffledData vì validData đã được xáo trộn từ trên
-          validData.forEach((item, index) => {
-            let questionDiv = document.createElement("div");
-            questionDiv.className = "question-card";
-
-            questionDiv.innerHTML = `
-                        <div class="question-text">Câu ${index + 1}: Từ nào có nghĩa là <b>"${item.definition}"</b>?</div>
-                        <div class="spell-group">
-                            <input type="text" class="spell-input" placeholder="Gõ từ tiếng Anh vào đây...">
-                            <button class="spell-btn">Kiểm tra</button>
-                        </div>
-                        <div class="result-msg"></div>
-                        <div class="speaker-group" style="display: none; margin-top: 10px;">
-                            <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'uk')">🇬🇧 Nghe lại</button>
-                            <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'us')">🇺🇸 Nghe lại</button>
-                        </div>
-                    `;
-
-            let inputField = questionDiv.querySelector(".spell-input");
-            let checkBtn = questionDiv.querySelector(".spell-btn");
-            let msg = questionDiv.querySelector(".result-msg");
-            let speakerGroup = questionDiv.querySelector(".speaker-group");
-
-            const checkAnswer = () => {
-              let userWord = inputField.value.trim().toLowerCase();
-              if (!userWord) return;
-
-              inputField.disabled = true;
-              checkBtn.disabled = true;
-              speakerGroup.style.display = "block";
-
-              answeredQuestions++;
-
-              if (userWord === item.word) {
-                msg.innerText = "🎉 Chính xác!";
-                msg.style.color = "#2ecc71";
-                inputField.style.borderColor = "#2ecc71";
-                inputField.style.backgroundColor = "#eafaf1";
-                correctAnswers++;
-              } else {
-                msg.innerHTML = `❌ Sai rồi! Đáp án đúng là: <b>${item.word}</b>`;
-                msg.style.color = "#e74c3c";
-                inputField.style.borderColor = "#e74c3c";
-                inputField.style.backgroundColor = "#fdedec";
-
-                mistakes.push({
-                  question: `Nghĩa là "${item.definition}"`,
-                  correct: item.word,
-                  userAnswer: userWord,
-                });
-              }
-              checkCompletion();
-            };
-
-            checkBtn.onclick = checkAnswer;
-            inputField.addEventListener("keypress", function (event) {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                checkAnswer();
-              }
-            });
-
-            quizArea.appendChild(questionDiv);
-          });
+          }
         }
       }
+
+      function renderFlashcard() {
+        const quizArea = document.getElementById("quizArea");
+        let item = flashcardData[currentCardIndex];
+
+        let ipaVisibility = item.ipa ? "visible" : "hidden";
+        let ipaText = item.ipa ? item.ipa : "/.../";
+
+        quizArea.innerHTML = `
+                <div class="flashcard-wrapper">
+                    <p style="color: #7f8c8d; margin-bottom: 15px; font-style: italic;">Nhấp chuột vào thẻ để lật xem nghĩa</p>
+                    <div class="flip-card" onclick="this.classList.toggle('flipped')">
+                        <div class="flip-card-inner">
+                            <div class="flip-card-front">
+                                <div class="fc-word">${item.word}</div>
+                                <div class="fc-ipa" style="visibility: ${ipaVisibility}">${ipaText}</div>
+                                <div class="fc-audio-group">
+                                    <button class="fc-speaker" onclick="event.stopPropagation(); speakWord('${item.word.replace(/'/g, "\\'")}', 'uk')">🇬🇧 UK</button>
+                                    <button class="fc-speaker" onclick="event.stopPropagation(); speakWord('${item.word.replace(/'/g, "\\'")}', 'us')">🇺🇸 US</button>
+                                </div>
+                            </div>
+                            <div class="flip-card-back">
+                                <div class="fc-def">${item.definition}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="fc-controls">
+                        <button class="fc-nav-btn" onclick="prevCard()" ${currentCardIndex === 0 ? "disabled" : ""}>⬅️ Trước</button>
+                        <span class="fc-counter">${currentCardIndex + 1} / ${flashcardData.length}</span>
+                        <button class="fc-nav-btn" onclick="nextCard()" ${currentCardIndex === flashcardData.length - 1 ? "disabled" : ""}>Sau ➡️</button>
+                    </div>
+                </div>
+            `;
+      }
+
+      window.prevCard = function () {
+        if (currentCardIndex > 0) {
+          currentCardIndex--;
+          renderFlashcard();
+        }
+      };
+
+      window.nextCard = function () {
+        if (currentCardIndex < flashcardData.length - 1) {
+          currentCardIndex++;
+          renderFlashcard();
+        }
+      };
 
       function showStatistics(mode) {
         const statsArea = document.getElementById("statsArea");
@@ -515,7 +753,7 @@ take care of"
           html += `</div>`;
         }
 
-        html += `<br><button class="main-btn btn-quiz" onclick="window.scrollTo(0,0)">Làm bài khác</button>`;
+        html += `<br><button class="main-btn btn-quiz" style="max-width: 200px; margin: 0 auto; display: block;" onclick="window.scrollTo(0,0)">Làm bài khác</button>`;
         statsArea.innerHTML = html;
 
         setTimeout(() => {
