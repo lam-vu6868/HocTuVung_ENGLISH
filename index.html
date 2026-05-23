@@ -73,7 +73,7 @@
         margin-top: 15px;
       }
 
-      /* Thanh Tiến Trình - Progress Bar (MỚI) */
+      /* Thanh Tiến Trình - Progress Bar */
       .progress-container {
         position: sticky;
         top: 0;
@@ -502,7 +502,7 @@ look forward to"
         const progressContainer = document.getElementById("progressContainer");
         const progressBar = document.getElementById("progressBar");
 
-        // 🌟 TỐI ƯU UX 1: Tự động lọc từ trùng lặp bằng Set
+        // Lọc từ trùng lặp
         let words = [
           ...new Set(
             input
@@ -672,7 +672,7 @@ look forward to"
                   let allOptions = questionDiv.querySelectorAll(".option");
                   allOptions.forEach((el) => el.classList.add("disabled"));
                   answeredQuestions++;
-                  updateProgressBar(); // 🌟 TỐI ƯU UX 2: Chạy thanh tiến trình
+                  updateProgressBar();
 
                   let ipaDisplay = item.ipa
                     ? ` <span style="color:#7f8c8d;">${item.ipa}</span>`
@@ -691,7 +691,10 @@ look forward to"
                       if (el.innerText.includes(item.definition))
                         el.classList.add("correct");
                     });
+
+                    // Lưu lỗi sai (có lưu cả từ gốc)
                     mistakes.push({
+                      word: item.word,
                       question: `Từ "${item.word}"`,
                       correct: item.definition,
                       userAnswer: opt.definition,
@@ -707,6 +710,7 @@ look forward to"
               quizArea.appendChild(questionDiv);
             });
           } else if (mode === "spell") {
+            // Chế độ Chính tả
             validData.forEach((item, index) => {
               let questionDiv = document.createElement("div");
               questionDiv.className = "question-card";
@@ -736,7 +740,7 @@ look forward to"
                 checkBtn.disabled = true;
                 speakerGroup.style.display = "block";
                 answeredQuestions++;
-                updateProgressBar(); // 🌟 TỐI ƯU UX 2: Chạy thanh tiến trình
+                updateProgressBar();
 
                 if (userWord === item.word.toLowerCase()) {
                   msg.innerText = "🎉 Chính xác!";
@@ -749,7 +753,10 @@ look forward to"
                   msg.style.color = "#e74c3c";
                   inputField.style.borderColor = "#e74c3c";
                   inputField.style.backgroundColor = "#fdedec";
+
+                  // Lưu lỗi sai (có lưu cả từ gốc)
                   mistakes.push({
+                    word: item.word,
                     question: `Nghĩa là "${item.definition}"`,
                     correct: item.word,
                     userAnswer: userWord,
@@ -767,7 +774,7 @@ look forward to"
               });
               quizArea.appendChild(questionDiv);
 
-              // 🌟 TỐI ƯU UX 3: Tự động focus vào ô nhập liệu đầu tiên
+              // Tự động focus vào ô nhập liệu đầu tiên
               if (index === 0) {
                 setTimeout(() => inputField.focus(), 200);
               }
@@ -858,13 +865,39 @@ look forward to"
           html += `</div>`;
         }
 
-        html += `<br><button class="main-btn btn-quiz" style="max-width: 200px; margin: 0 auto; display: block;" onclick="window.scrollTo(0,0)">Làm bài khác</button>`;
+        // Tạo một nhóm nút bấm cho phần kết quả
+        html += `<br><div class="btn-group" style="justify-content: center; margin-top: 15px;">`;
+
+        // Nếu có lỗi sai, hiển thị nút "Làm lại các từ sai"
+        if (mistakes.length > 0) {
+          html += `<button class="main-btn btn-spell" style="max-width: 250px;" onclick="redoMistakes('${mode}')">🔄 Làm lại từ sai</button>`;
+        }
+
+        // Luôn hiển thị nút "Làm bài khác"
+        html += `<button class="main-btn btn-quiz" style="max-width: 200px;" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">Làm bài khác</button>`;
+        html += `</div>`;
+
         statsArea.innerHTML = html;
 
         setTimeout(() => {
           statsArea.scrollIntoView({ behavior: "smooth" });
         }, 500);
       }
+
+      // HÀM MỚI: Làm lại các từ đã sai
+      window.redoMistakes = function (mode) {
+        // 1. Trích xuất danh sách các từ tiếng Anh bị sai
+        let wrongWords = mistakes.map((err) => err.word);
+
+        // 2. Tự động điền lại các từ này vào ô nhập liệu
+        document.getElementById("wordInput").value = wrongWords.join("\n");
+
+        // 3. Cuộn lên đầu trang cho mượt mà
+        window.scrollTo({ top: 0, behavior: "smooth" });
+
+        // 4. Khởi chạy lại đúng chế độ vừa chơi (quiz hoặc spell)
+        startApp(mode);
+      };
     </script>
   </body>
 </html>
