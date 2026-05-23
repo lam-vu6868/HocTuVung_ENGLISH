@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>💡 Ôn Từ Vựng Đa Năng - UX Pro</title>
+    <title>💡 Ôn Từ Vựng Đa Năng - UX Pro Bản Sửa Lỗi</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap"
       rel="stylesheet"
@@ -557,6 +557,7 @@
       let mistakes = [];
       let flashcardData = [];
       let currentCardIndex = 0;
+      window.currentSpeechLang = "en-US"; // Ngôn ngữ nhận diện mặc định (Mỹ)
 
       const dummyDistractors = [
         { word: "apple", definition: "quả táo", ipa: "/ˈæp.əl/" },
@@ -606,7 +607,7 @@
         return "";
       }
 
-      // HÀM MỚI: Tải từ vựng, tự dịch và hiển thị màn hình Preview
+      // Tải từ vựng, tự dịch và hiển thị màn hình Preview
       async function loadAndPreviewWords() {
         const input = document.getElementById("wordInput").value;
         const loading = document.getElementById("loading");
@@ -739,7 +740,24 @@
         progressContainer.style.display =
           mode !== "flashcard" ? "block" : "none";
 
-        quizArea.innerHTML = `<div><button class="speaker-btn" onclick="goBackToInput()" style="margin-bottom: 15px; border-color:var(--primary); color:var(--primary-dark);">⬅️ Đổi chế độ / Thêm từ mới</button></div>`;
+        quizArea.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 15px;">
+            <button class="speaker-btn" onclick="goBackToInput()" style="border-color:var(--primary); color:var(--primary-dark);">⬅️ Đổi chế độ / Thêm từ</button>
+            ${
+              mode === "speak"
+                ? `
+              <div style="display:flex; align-items:center; gap:5px;">
+                <label style="font-weight:700; font-size:14px;">🗣️ Giọng nhận diện: </label>
+                <select onchange="window.currentSpeechLang = this.value" style="padding:6px 10px; border-radius:8px; font-family:'Nunito'; font-weight:700; border:2px solid #cbd5e0; outline:none; cursor:pointer;">
+                  <option value="en-US">🇺🇸 Anh - Mỹ (en-US)</option>
+                  <option value="en-GB">🇬🇧 Anh - Anh (en-GB)</option>
+                </select>
+              </div>
+            `
+                : ""
+            }
+          </div>
+        `;
 
         if (mode === "flashcard") {
           flashcardData = localData;
@@ -901,7 +919,7 @@
               quizArea.appendChild(questionDiv);
             });
 
-            // CHẾ ĐỘ 3: TẬP PHÁT ÂM (AI RECOGNITION)
+            // CHẾ ĐỘ 3: TẬP PHÁT ÂM (ĐÃ NÂNG CẤP TOP 5 KẾT QUẢ + FIXED LỖI)
           } else if (mode === "speak") {
             localData.forEach((item, index) => {
               let questionDiv = document.createElement("div");
@@ -931,41 +949,57 @@
                 }
 
                 const recognition = new SpeechRecognition();
-                recognition.lang = "en-US";
+                // Sử dụng cấu hình giọng đã chọn (Mỹ hoặc Anh)
+                recognition.lang = window.currentSpeechLang || "en-US";
                 recognition.interimResults = false;
-                recognition.maxAlternatives = 1;
+
+                // Yêu cầu AI đưa ra top 5 từ nghe giống nhất để tăng độ bao dung sai số
+                recognition.maxAlternatives = 5;
 
                 micBtn.classList.add("listening");
                 explanationDiv.style.display = "block";
                 explanationDiv.innerHTML =
-                  " đang nghe... Hãy nói to, rõ ràng vào Mic nhé!";
+                  " Đang nghe... Hãy nói to, rõ ràng vào Mic nhé!";
                 explanationDiv.style.background = "#f7fafc";
-                explanationDiv.style.color = "var(--text-color)";
+                explanationDiv.style.color = "var(--text-color)"; // Đã vá lỗi thêm "" thành công
 
                 recognition.start();
 
                 recognition.onresult = (event) => {
                   micBtn.classList.remove("listening");
-                  micBtn.disabled = true; // Chỉ cho nói 1 lần trên 1 thẻ
-                  let spokenText = event.results[0][0].transcript
+                  micBtn.disabled = true; // Cho đọc 1 lần trên mỗi thẻ câu hỏi
+
+                  let targetText = item.word.toLowerCase().trim();
+                  let isMatch = false;
+                  let topGuess = event.results[0][0].transcript
                     .trim()
                     .toLowerCase();
-                  let targetText = item.word.toLowerCase();
-
-                  // Tính toán độ khớp tương đối (Levenshtein thu gọn hoặc so khớp thô)
-                  let isMatch =
-                    spokenText === targetText ||
-                    targetText.includes(spokenText) ||
-                    spokenText.includes(targetText);
                   let confidence = Math.round(
                     event.results[0][0].confidence * 100,
                   );
+
+                  // Vòng lặp quét qua cả 5 từ đồng âm mà máy thu được
+                  for (let i = 0; i < event.results[0].length; i++) {
+                    let spokenText = event.results[0][i].transcript
+                      .trim()
+                      .toLowerCase();
+                    spokenText = spokenText.replace(/[.,!?]/g, ""); // Dọn dẹp dấu câu thừa
+
+                    if (
+                      spokenText === targetText ||
+                      targetText.includes(spokenText) ||
+                      spokenText.includes(targetText)
+                    ) {
+                      isMatch = true;
+                      break;
+                    }
+                  }
 
                   answeredQuestions++;
 
                   if (isMatch) {
                     correctAnswers++;
-                    explanationDiv.innerHTML = `🎉 <b>Chính xác!</b> Độ chuẩn giọng: <b>${confidence}%</b><br><span style="font-weight:400; color:#555">Bạn vừa nói: "${spokenText}"</span>`;
+                    explanationDiv.innerHTML = `🎉 <b>Chính xác!</b> (Độ tự tin của AI: <b>${confidence}%</b>)<br><span style="font-weight:400; color:#555">Máy nghe được bạn đọc là: "${topGuess}"</span>`;
                     explanationDiv.style.background = "#eafaf1";
                     explanationDiv.style.color = "var(--success-dark)";
                   } else {
@@ -975,9 +1009,9 @@
                       word: item.word,
                       question: `Phát âm từ "${item.word}"`,
                       correct: item.word,
-                      userAnswer: spokenText,
+                      userAnswer: topGuess,
                     });
-                    explanationDiv.innerHTML = `❌ <b>Chưa chuẩn rồi!</b> Tỉ lệ khớp thấp.<br><span style="font-weight:700; color:var(--danger-dark);">Máy nghe được là: "${spokenText}"</span><br><span style="font-weight:400; color:#7f8c8d">Hãy bấm nút "Nghe mẫu" và thử lại ở các vòng sau nhé!</span>`;
+                    explanationDiv.innerHTML = `❌ <b>Chưa chuẩn rồi!</b><br><span style="font-weight:700; color:var(--danger-dark);">Máy thu được âm: "${topGuess}"</span><br><span style="font-weight:400; color:#7f8c8d">Hãy bấm nút "Nghe mẫu" và thử lại ở phần ôn tập nhé!</span>`;
                     explanationDiv.style.background = "#fdedec";
                     explanationDiv.style.color = "var(--danger-dark)";
                   }
@@ -987,7 +1021,7 @@
                 recognition.onerror = () => {
                   micBtn.classList.remove("listening");
                   explanationDiv.innerHTML =
-                    "⚠️ Không nhận diện được âm thanh. Hãy nhấn lại mic và nói rõ hơn!";
+                    "⚠️ Không nhận diện được âm thanh. Hãy kiểm tra lại Micro hoặc cấp quyền nhé!";
                   explanationDiv.style.background = "#fff3cd";
                   explanationDiv.style.color = "#856404";
                 };
@@ -1002,9 +1036,13 @@
       function renderFlashcard() {
         const quizArea = document.getElementById("quizArea");
         let item = flashcardData[currentCardIndex];
+
+        // Giữ lại nút Đổi chế độ của Màn hình 3 học tập
         quizArea.innerHTML = `
+          <div>
+            <button class="speaker-btn" onclick="goBackToInput()" style="margin-bottom: 20px; border-color:var(--primary); color:var(--primary-dark);">⬅️ Đổi chế độ / Thêm từ</button>
+          </div>
           <div class="flashcard-wrapper">
-            <button class="speaker-btn" onclick="goBackToInput()" style="margin-bottom: 20px; border-color:var(--primary); color:var(--primary-dark);">⬅️ Đổi chế độ / Thêm từ mới</button>
             <p style="color: #7f8c8d; font-weight: 600; margin-bottom: 10px;">✨ Chạm vào thẻ để lật</p>
             <div class="flip-card" onclick="this.classList.toggle('flipped')">
               <div class="flip-card-inner">
