@@ -1999,12 +1999,38 @@
         const quizArea = document.getElementById("quizArea");
         let item = flashcardData[currentCardIndex];
 
-        const posList = ["Danh từ (n)", "Động từ (v)", "Tính từ (adj)", "Trạng từ (adv)", "Tính/Trạng từ (adj/adv)", "Đại từ (pron)", "Giới từ (prep)", "Liên từ (conj)", "Thán từ (int)", "Cụm từ", "Cụm động từ", "Từ vựng", "Từ loại khác"];
+        const posList = [
+          "Danh từ (n)",
+          "Động từ (v)",
+          "Tính từ (adj)",
+          "Trạng từ (adv)",
+          "Tính/Trạng từ (adj/adv)",
+          "Đại từ (pron)",
+          "Giới từ (prep)",
+          "Liên từ (conj)",
+          "Thán từ (int)",
+          "Cụm từ",
+          "Cụm động từ",
+          "Từ vựng",
+          "Từ loại khác",
+        ];
         let currentPos = item.pos || "Từ vựng";
-        let optionsHtml = posList.map(p => `<option value="${p}" ${p === currentPos ? 'selected' : ''}>${p}</option>`).join('');
+        let optionsHtml = posList
+          .map(
+            (p) =>
+              `<option value="${p}" ${p === currentPos ? "selected" : ""}>${p}</option>`,
+          )
+          .join("");
         if (!posList.includes(currentPos)) {
           optionsHtml += `<option value="${currentPos}" selected>${currentPos}</option>`;
         }
+
+        // Tạo chuỗi hình nền mặc định
+        let defaultBg =
+          "linear-gradient(135deg, var(--secondary) 0%, var(--secondary-dark) 100%)";
+        let cardBackStyle = item.imageUrl
+          ? `background: linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.65)), url('${item.imageUrl}') center/cover;`
+          : `background: ${defaultBg};`;
 
         quizArea.innerHTML = `
           <div>
@@ -2030,9 +2056,9 @@
                     <button class="speaker-btn" onclick="event.stopPropagation(); speakWord('${item.word.replace(/'/g, "\\'")}', 'us')">🇺🇸 US</button>
                   </div>
                 </div>
-                <div class="flip-card-back">
+                <div class="flip-card-back" id="fcBackBg_${currentCardIndex}" style="${cardBackStyle}">
                   <div class="fc-def-container" style="width: 80%;">
-                    <input type="text" class="preview-input" style="width: 100%; text-align: center; font-size: 28px; font-weight: 800; background: transparent; color: white; border: 2px dashed rgba(255,255,255,0.5); padding: 5px;" value="${item.definition}" onclick="event.stopPropagation()" onchange="updateFlashcardDef(${currentCardIndex}, this.value)" title="Nhấn để sửa nghĩa">
+                    <input type="text" class="preview-input" style="width: 100%; text-align: center; font-size: 28px; font-weight: 800; background: transparent; color: white; border: 2px dashed rgba(255,255,255,0.5); padding: 5px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);" value="${item.definition}" onclick="event.stopPropagation()" onchange="updateFlashcardDef(${currentCardIndex}, this.value)" title="Nhấn để sửa nghĩa">
                   </div>
                 </div>
               </div>
@@ -2044,6 +2070,82 @@
             </div>
           </div>
         `;
+
+        // Tự động tải ảnh từ API Wikipedia (Dùng Search Mode để khớp đa dạng hơn)
+        if (item.imageUrl === undefined) {
+          fetch(
+            `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(item.word)}%20-intitle:"disambiguation"&gsrlimit=3&prop=pageimages&format=json&pithumbsize=600&origin=*`,
+          )
+            .then((res) => res.json())
+            .then((data) => {
+              let pages = data.query?.pages;
+              let foundImage = false;
+
+              if (pages) {
+                let bestImage = null;
+                let maxScore = -999;
+                let wordLower = item.word.toLowerCase().trim();
+
+                for (let pageId in pages) {
+                  let page = pages[pageId];
+                  if (page.thumbnail) {
+                    let score = 0;
+                    let titleLower = page.title.toLowerCase();
+
+                    // Thuật toán chấm điểm mức độ liên quan (Fuzzy Scoring)
+                    if (titleLower === wordLower) {
+                      score += 100; // Khớp chính xác hoàn toàn tên bài viết
+                    } else if (
+                      new RegExp(`\\b${wordLower}\\b`).test(titleLower)
+                    ) {
+                      score += 50; // Nằm riêng biệt bên trong câu (Word boundary)
+                    } else if (titleLower.startsWith(wordLower)) {
+                      score += 30; // Từ khóa nằm ở đầu tiêu đề
+                    } else if (titleLower.includes(wordLower)) {
+                      score += 10; // Có xuất hiện chuỗi từ khóa
+                    }
+
+                    // Trừ điểm dựa trên rank trả về của Wiki (kết quả ở xa thì bị trừ bớt điểm độ tin cậy)
+                    score -= (page.index || 0) * 2;
+
+                    // Cập nhật lấy ảnh có điểm số cao nhất
+                    if (score > maxScore) {
+                      maxScore = score;
+                      bestImage = page.thumbnail.source;
+                    }
+                  }
+                }
+
+                if (bestImage) {
+                  item.imageUrl = bestImage;
+                  foundImage = true;
+                }
+              }
+
+              if (foundImage) {
+                let targetItem = preparedData.find((p) => p.word === item.word);
+                if (targetItem) targetItem.imageUrl = item.imageUrl;
+
+                // Nếu người dùng vẫn đang ở thẻ này, thì cập nhật background luôn
+                if (flashcardData[currentCardIndex] === item) {
+                  let backEl = document.getElementById(
+                    "fcBackBg_" + currentCardIndex,
+                  );
+                  if (backEl) {
+                    backEl.style.background = `linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.65)), url('${item.imageUrl}') center/cover`;
+                  }
+                }
+                saveDeck(); // Lưu lại vào máy
+              } else {
+                item.imageUrl = false; // Đánh dấu là không tìm thấy
+                let targetItem = preparedData.find((p) => p.word === item.word);
+                if (targetItem) targetItem.imageUrl = false;
+              }
+            })
+            .catch(() => {
+              item.imageUrl = false;
+            });
+        }
       }
 
       window.updateFlashcardPos = (index, value) => {
@@ -2051,9 +2153,11 @@
           let val = value.trim();
           flashcardData[index].pos = val;
           // Đồng bộ lại với preparedData gốc trước khi lưu
-          let targetItem = preparedData.find(p => p.word === flashcardData[index].word);
+          let targetItem = preparedData.find(
+            (p) => p.word === flashcardData[index].word,
+          );
           if (targetItem) targetItem.pos = val;
-          
+
           saveDeck(); // Lưu vào bộ nhớ LocalStorage
         }
       };
@@ -2063,9 +2167,11 @@
           let val = value.trim();
           flashcardData[index].definition = val;
           // Đồng bộ lại với preparedData gốc trước khi lưu
-          let targetItem = preparedData.find(p => p.word === flashcardData[index].word);
+          let targetItem = preparedData.find(
+            (p) => p.word === flashcardData[index].word,
+          );
           if (targetItem) targetItem.definition = val;
-          
+
           saveDeck(); // Lưu vào bộ nhớ LocalStorage
         }
       };
