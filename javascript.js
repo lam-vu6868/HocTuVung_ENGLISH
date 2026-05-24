@@ -1,0 +1,1446 @@
+// 💡 Hàm hiển thị Toast Notification chuyên nghiệp thay cho alert()
+function showToast(message, type = "error") {
+  let container = document.getElementById("toastContainer");
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+
+  let icon = type === "error" ? "⚠️" : type === "success" ? "✅" : "ℹ️";
+  toast.innerHTML = `<span style="font-size: 20px;">${icon}</span> <span>${message}</span>`;
+  container.appendChild(toast);
+
+  // Tự động tắt sau 3.5s
+  setTimeout(() => {
+    toast.style.animation = "fadeOutRight 0.4s forwards";
+    setTimeout(() => toast.remove(), 400); // Chờ animation chạy xong rồi xóa element
+  }, 3500);
+}
+
+// 💡 Hàm hiển thị Confirm Modal chuyên nghiệp thay cho confirm()
+function showConfirm(message, onConfirm) {
+  const overlay = document.getElementById("confirmOverlay");
+  const msgEl = document.getElementById("confirmMessage");
+  const btnCancel = document.getElementById("btnConfirmCancel");
+  const btnOk = document.getElementById("btnConfirmOk");
+
+  msgEl.textContent = message;
+  overlay.classList.add("show");
+
+  // Dọn dẹp event cũ (tránh bị gọi nhiều lần nếu mở đóng liên tục)
+  btnCancel.onclick = () => {
+    overlay.classList.remove("show");
+  };
+  btnOk.onclick = () => {
+    overlay.classList.remove("show");
+    onConfirm();
+  };
+}
+
+// 🌙 Xử lý Theme (Dark Mode)
+function toggleTheme(e) {
+  if (e.checked) {
+    document.body.classList.add("dark-mode");
+    localStorage.setItem("theme", "dark");
+  } else {
+    document.body.classList.remove("dark-mode");
+    localStorage.setItem("theme", "light");
+  }
+}
+if (localStorage.getItem("theme") === "dark") {
+  document.body.classList.add("dark-mode");
+  document.getElementById("checkbox").checked = true;
+}
+
+// 🎵 Web Audio API cho Sound Effects (SFX)
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSFX(type) {
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  if (type === "correct") {
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // Node C5
+    osc.frequency.exponentialRampToValueAtTime(
+      1046.5,
+      audioCtx.currentTime + 0.1,
+    ); // Vuốt lên
+    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.01,
+      audioCtx.currentTime + 0.4,
+    );
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.4);
+  } else {
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(150, audioCtx.currentTime); // Âm trầm
+    osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2); // Vuốt xuống
+    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(
+      0.01,
+      audioCtx.currentTime + 0.3,
+    );
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+  }
+}
+
+if ("speechSynthesis" in window) {
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = () =>
+    window.speechSynthesis.getVoices();
+}
+
+let preparedData = [];
+let totalQuestions = 0;
+let answeredQuestions = 0;
+let correctAnswers = 0;
+let mistakes = [];
+let flashcardData = [];
+let currentCardIndex = 0;
+
+// === Quản lý Kho Từ Vựng bằng LocalStorage ===
+let savedDecks = JSON.parse(localStorage.getItem("vocaDecks")) || [];
+let currentDeckId = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (savedDecks.length > 0) {
+    showDashboard();
+  } else {
+    showInputSection();
+  }
+});
+
+function showDashboard() {
+  document.getElementById("dashboardSection").style.display = "block";
+  document.getElementById("inputSection").style.display = "none";
+  document.getElementById("previewSection").style.display = "none";
+  document.getElementById("quizArea").innerHTML = "";
+  document.getElementById("statsArea").style.display = "none";
+  document.getElementById("progressContainer").style.display = "none";
+
+  let html = "";
+  savedDecks.forEach((deck) => {
+    html += `
+            <div style="background: white; border: 2px solid #e0e6ed; padding: 15px 20px; border-radius: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.02); transition: 0.2s;">
+              <div>
+                <h3 style="margin: 0 0 5px 0; color: var(--primary-dark); font-size: 18px;">${deck.name || "Bộ từ chưa tên"}</h3>
+                <p style="margin: 0; color: #7f8c8d; font-size: 14px; font-weight: 600;">${deck.words.length} từ vựng</p>
+              </div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;">
+                ${deck.mistakes && deck.mistakes.length > 0 ? `<button class="main-btn btn-spell" style="min-width: 60px; padding: 10px; font-size: 14px;" onclick="playMistakesDeck('${deck.id}')">⚠️ Ôn ${deck.mistakes.length} từ sai</button>` : ""}
+                <button class="main-btn btn-quiz" style="min-width: 60px; padding: 10px; font-size: 14px;" onclick="playSelectedDeck('${deck.id}')">▶️ Học tất cả</button>
+                <button class="main-btn" style="min-width: 60px; padding: 10px; font-size: 14px; background:var(--danger); box-shadow:0 4px 0 var(--danger-dark);" onclick="deleteDeck('${deck.id}')">🗑️ Xóa</button>
+              </div>
+            </div>
+          `;
+  });
+  if (savedDecks.length === 0)
+    html = `<p style="text-align:center; color:#7f8c8d;">Bạn chưa có bộ từ vựng nào.</p>`;
+  document.getElementById("deckList").innerHTML = html;
+}
+
+function showInputSection() {
+  document.getElementById("dashboardSection").style.display = "none";
+  document.getElementById("inputSection").style.display = "block";
+  document.getElementById("deckName").value = "";
+  document.getElementById("wordInput").value = "";
+  currentDeckId = Date.now().toString(); // Khởi tạo ID mới
+}
+
+function deleteDeck(id) {
+  showConfirm("Bạn có chắc muốn xóa bộ từ này khỏi máy?", () => {
+    savedDecks = savedDecks.filter((d) => d.id !== id);
+    localStorage.setItem("vocaDecks", JSON.stringify(savedDecks));
+    if (savedDecks.length > 0) showDashboard();
+    else showInputSection();
+    showToast("Xóa bộ từ vựng thành công!", "success");
+  });
+}
+
+function playSelectedDeck(id) {
+  let deck = savedDecks.find((d) => d.id === id);
+  if (deck) {
+    currentDeckId = deck.id;
+    document.getElementById("deckName").value = deck.name;
+    preparedData = JSON.parse(JSON.stringify(deck.words)); // Clone dữ liệu
+    renderPreviewHtml();
+  }
+}
+
+function playMistakesDeck(id) {
+  let deck = savedDecks.find((d) => d.id === id);
+  if (deck && deck.mistakes && deck.mistakes.length > 0) {
+    currentDeckId = deck.id;
+    document.getElementById("deckName").value = deck.name; // Keep tracking the original deck
+    // Chỉ lấy những từ nằm trong danh sách mistakes của bộ này
+    preparedData = JSON.parse(JSON.stringify(deck.words)).filter((w) =>
+      deck.mistakes.includes(w.word),
+    );
+    renderPreviewHtml();
+  }
+}
+
+function saveDeck() {
+  let name =
+    document.getElementById("deckName").value.trim() ||
+    "Bộ từ " + new Date().toLocaleDateString("vi-VN");
+  let existingIdx = savedDecks.findIndex((d) => d.id === currentDeckId);
+  if (existingIdx >= 0) {
+    savedDecks[existingIdx].name = name;
+    savedDecks[existingIdx].words = preparedData;
+  } else {
+    savedDecks.push({
+      id: currentDeckId || Date.now().toString(),
+      name: name,
+      words: preparedData,
+    });
+  }
+  localStorage.setItem("vocaDecks", JSON.stringify(savedDecks));
+}
+// ==========================================
+
+// Kho từ mồi 500 từ
+const dummyDistractors = [
+  { word: "apple", definition: "quả táo" },
+  { word: "banana", definition: "quả chuối" },
+  { word: "orange", definition: "quả cam" },
+  { word: "bread", definition: "bánh mì" },
+  { word: "milk", definition: "sữa" },
+  { word: "coffee", definition: "cà phê" },
+  { word: "water", definition: "nước" },
+  { word: "computer", definition: "máy tính" },
+  { word: "phone", definition: "điện thoại" },
+  { word: "house", definition: "ngôi nhà" },
+  { word: "car", definition: "ô tô" },
+  { word: "bicycle", definition: "xe đạp" },
+  { word: "dog", definition: "con chó" },
+  { word: "cat", definition: "con mèo" },
+  { word: "bird", definition: "con chim" },
+  { word: "teacher", definition: "giáo viên" },
+  { word: "student", definition: "học sinh" },
+  { word: "doctor", definition: "bác sĩ" },
+  { word: "nurse", definition: "y tá" },
+  { word: "engineer", definition: "kỹ sư" },
+  { word: "worker", definition: "công nhân" },
+  { word: "beautiful", definition: "xinh đẹp" },
+  { word: "ugly", definition: "xấu xí" },
+  { word: "happy", definition: "hạnh phúc" },
+  { word: "sad", definition: "buồn bã" },
+  { word: "angry", definition: "tức giận" },
+  { word: "scared", definition: "sợ hãi" },
+  { word: "big", definition: "to lớn" },
+  { word: "small", definition: "nhỏ bé" },
+  { word: "hot", definition: "nóng bức" },
+  { word: "cold", definition: "lạnh lẽo" },
+  { word: "fast", definition: "nhanh chóng" },
+  { word: "slow", definition: "chậm chạp" },
+  { word: "good", definition: "tốt bụng" },
+  { word: "bad", definition: "tồi tệ" },
+  { word: "run", definition: "chạy bộ" },
+  { word: "walk", definition: "đi bộ" },
+  { word: "swim", definition: "bơi lội" },
+  { word: "jump", definition: "nhảy lên" },
+  { word: "read", definition: "đọc sách" },
+  { word: "write", definition: "viết chữ" },
+  { word: "speak", definition: "nói chuyện" },
+  { word: "listen", definition: "lắng nghe" },
+  { word: "sleep", definition: "ngủ" },
+  { word: "eat", definition: "ăn uống" },
+  { word: "drink", definition: "uống nước" },
+  { word: "laugh", definition: "cười lớn" },
+  { word: "cry", definition: "khóc nhè" },
+  { word: "book", definition: "quyển sách" },
+  { word: "pen", definition: "bút mực" },
+  { word: "pencil", definition: "bút chì" },
+  { word: "paper", definition: "tờ giấy" },
+  { word: "table", definition: "cái bàn" },
+  { word: "chair", definition: "cái ghế" },
+  { word: "window", definition: "cửa sổ" },
+  { word: "door", definition: "cửa ra vào" },
+  { word: "school", definition: "trường học" },
+  { word: "class", definition: "lớp học" },
+  { word: "office", definition: "văn phòng" },
+  { word: "money", definition: "tiền bạc" },
+  { word: "market", definition: "chợ" },
+  { word: "shop", definition: "cửa hàng" },
+  { word: "hospital", definition: "bệnh viện" },
+  { word: "hotel", definition: "khách sạn" },
+  { word: "restaurant", definition: "nhà hàng" },
+  { word: "park", definition: "công viên" },
+  { word: "street", definition: "con đường" },
+  { word: "city", definition: "thành phố" },
+  { word: "country", definition: "quốc gia" },
+  { word: "world", definition: "thế giới" },
+  { word: "sky", definition: "bầu trời" },
+  { word: "sun", definition: "mặt trời" },
+  { word: "moon", definition: "mặt trăng" },
+  { word: "star", definition: "ngôi sao" },
+  { word: "tree", definition: "cây cối" },
+  { word: "flower", definition: "bông hoa" },
+  { word: "river", definition: "con sông" },
+  { word: "sea", definition: "biển cả" },
+  { word: "mountain", definition: "ngọn núi" },
+  { word: "rain", definition: "cơn mưa" },
+  { word: "wind", definition: "cơn gió" },
+  { word: "snow", definition: "tuyết rơi" },
+  { word: "fire", definition: "ngọn lửa" },
+  { word: "ice", definition: "băng đá" },
+  { word: "time", definition: "thời gian" },
+  { word: "day", definition: "ngày" },
+  { word: "night", definition: "đêm" },
+  { word: "morning", definition: "buổi sáng" },
+  { word: "evening", definition: "buổi tối" },
+  { word: "week", definition: "tuần" },
+  { word: "month", definition: "tháng" },
+  { word: "year", definition: "năm" },
+  { word: "clock", definition: "đồng hồ" },
+  { word: "shirt", definition: "áo sơ mi" },
+  { word: "pants", definition: "quần dài" },
+  { word: "shoes", definition: "đôi giày" },
+  { word: "hat", definition: "cái mũ" },
+  { word: "bag", definition: "cái túi" },
+  { word: "gold", definition: "vàng" },
+  { word: "silver", definition: "bạc" },
+  { word: "iron", definition: "sắt" },
+  { word: "wood", definition: "gỗ" },
+  { word: "stone", definition: "đá" },
+  { word: "glass", definition: "thủy tinh" },
+  { word: "plastic", definition: "nhựa" },
+  { word: "music", definition: "âm nhạc" },
+  { word: "song", definition: "bài hát" },
+  { word: "movie", definition: "bộ phim" },
+  { word: "game", definition: "trò chơi" },
+  { word: "sport", definition: "thể thao" },
+  { word: "football", definition: "bóng đá" },
+  { word: "tennis", definition: "quần vợt" },
+  { word: "chess", definition: "cờ vua" },
+  { word: "dance", definition: "nhảy múa" },
+  { word: "sing", definition: "ca hát" },
+  { word: "paint", definition: "vẽ tranh" },
+  { word: "cook", definition: "nấu ăn" },
+  { word: "travel", definition: "du lịch" },
+  { word: "fly", definition: "bay lượn" },
+  { word: "drive", definition: "lái xe" },
+  { word: "ride", definition: "cưỡi xe" },
+  { word: "buy", definition: "mua sắm" },
+  { word: "sell", definition: "bán hàng" },
+  { word: "pay", definition: "thanh toán" },
+  { word: "cost", definition: "giá cả" },
+  { word: "cheap", definition: "giá rẻ" },
+  { word: "expensive", definition: "đắt đỏ" },
+  { word: "rich", definition: "giàu có" },
+  { word: "poor", definition: "nghèo khổ" },
+  { word: "clean", definition: "sạch sẽ" },
+  { word: "dirty", definition: "bẩn thỉu" },
+  { word: "new", definition: "mới mẻ" },
+  { word: "old", definition: "cũ kỹ" },
+  { word: "young", definition: "trẻ tuổi" },
+  { word: "strong", definition: "mạnh mẽ" },
+  { word: "weak", definition: "yếu ớt" },
+  { word: "brave", definition: "dũng cảm" },
+  { word: "smart", definition: "thông minh" },
+  { word: "clever", definition: "khéo léo" },
+  { word: "stupid", definition: "ngốc nghếch" },
+  { word: "lazy", definition: "lười biếng" },
+  { word: "hardworking", definition: "chăm chỉ" },
+  { word: "kind", definition: "tốt bụng" },
+  { word: "cruel", definition: "độc ác" },
+  { word: "sweet", definition: "ngọt ngào" },
+  { word: "sour", definition: "chua chát" },
+  { word: "bitter", definition: "đắng ngắt" },
+  { word: "salty", definition: "mặn mà" },
+  { word: "delicious", definition: "thơm ngon" },
+  { word: "fresh", definition: "tươi sống" },
+  { word: "healthy", definition: "khỏe mạnh" },
+  { word: "sick", definition: "ốm đau" },
+  { word: "doctor", definition: "bác sĩ" },
+  { word: "medicine", definition: "thuốc men" },
+  { word: "pain", definition: "đau đớn" },
+  { word: "cure", definition: "chữa khỏi" },
+  { word: "body", definition: "cơ thể" },
+  { word: "head", definition: "cái đầu" },
+  { word: "face", definition: "khuôn mặt" },
+  { word: "eye", definition: "con mắt" },
+  { word: "ear", definition: "cái tai" },
+  { word: "nose", definition: "cái mũi" },
+  { word: "mouth", definition: "cái miệng" },
+  { word: "tooth", definition: "chiếc răng" },
+  { word: "hair", definition: "mái tóc" },
+  { word: "neck", definition: "cái cổ" },
+  { word: "arm", definition: "cánh tay" },
+  { word: "hand", definition: "bàn tay" },
+  { word: "finger", definition: "ngón tay" },
+  { word: "leg", definition: "cái chân" },
+  { word: "foot", definition: "bàn chân" },
+  { word: "heart", definition: "trái tim" },
+  { word: "blood", definition: "máu" },
+  { word: "brain", definition: "não bộ" },
+  { word: "family", definition: "gia đình" },
+  { word: "parents", definition: "cha mẹ" },
+  { word: "father", definition: "người cha" },
+  { word: "mother", definition: "người mẹ" },
+  { word: "son", definition: "con trai" },
+  { word: "daughter", definition: "con gái" },
+  { word: "brother", definition: "anh em trai" },
+  { word: "sister", definition: "chị em gái" },
+  { word: "baby", definition: "em bé" },
+  { word: "friend", definition: "bạn bè" },
+  { word: "enemy", definition: "kẻ thù" },
+  { word: "neighbor", definition: "hàng xóm" },
+  { word: "marriage", definition: "hôn nhân" },
+  { word: "love", definition: "tình yêu" },
+  { word: "hate", definition: "căm ghét" },
+  { word: "peace", definition: "hòa bình" },
+  { word: "war", definition: "chiến tranh" },
+  { word: "army", definition: "quân đội" },
+  { word: "soldier", definition: "người lính" },
+  { word: "weapon", definition: "vũ khí" },
+  { word: "danger", definition: "nguy hiểm" },
+  { word: "safety", definition: "an toàn" },
+  { word: "secret", definition: "bí mật" },
+  { word: "truth", definition: "sự thật" },
+  { word: "lie", definition: "lời nói dối" },
+  { word: "knowledge", definition: "kiến thức" },
+  { word: "wisdom", definition: "trí tuệ" },
+  { word: "history", definition: "lịch sử" },
+  { word: "science", definition: "khoa học" },
+  { word: "art", definition: "nghệ thuật" },
+  { word: "nature", definition: "tự nhiên" },
+  { word: "space", definition: "vũ trụ" },
+  { word: "earth", definition: "trái đất" },
+  { word: "animal", definition: "động vật" },
+  { word: "plant", definition: "thực vật" },
+  { word: "insect", definition: "côn trùng" },
+  { word: "fish", definition: "con cá" },
+  { word: "reptile", definition: "loài bò sát" },
+  { word: "bird", definition: "loài chim" },
+  { word: "lion", definition: "sư tử" },
+  { word: "tiger", definition: "con hổ" },
+  { word: "bear", definition: "con gấu" },
+  { word: "elephant", definition: "con voi" },
+  { word: "monkey", definition: "con khỉ" },
+  { word: "horse", definition: "con ngựa" },
+  { word: "cow", definition: "con bò" },
+  { word: "sheep", definition: "con cừu" },
+  { word: "pig", definition: "con lợn" },
+  { word: "chicken", definition: "con gà" },
+  { word: "duck", definition: "con vịt" },
+  { word: "mouse", definition: "con chuột" },
+  { word: "snake", definition: "con rắn" },
+  { word: "frog", definition: "con ếch" },
+  { word: "spider", definition: "con nhện" },
+  { word: "bee", definition: "con ong" },
+  { word: "ant", definition: "con kiến" },
+  { word: "butterfly", definition: "con bướm" },
+  { word: "forest", definition: "rừng rậm" },
+  { word: "desert", definition: "sa mạc" },
+  { word: "island", definition: "hòn đảo" },
+  { word: "lake", definition: "hồ nước" },
+  { word: "ocean", definition: "đại dương" },
+  { word: "beach", definition: "bãi biển" },
+  { word: "weather", definition: "thời tiết" },
+  { word: "climate", definition: "khí hậu" },
+  { word: "season", definition: "mùa" },
+  { word: "spring", definition: "mùa xuân" },
+  { word: "summer", definition: "mùa hè" },
+  { word: "autumn", definition: "mùa thu" },
+  { word: "winter", definition: "mùa đông" },
+  { word: "cloud", definition: "đám mây" },
+  { word: "fog", definition: "sương mù" },
+  { word: "storm", definition: "giông bão" },
+  { word: "thunder", definition: "sấm sét" },
+  { word: "lightning", definition: "tia chớp" },
+  { word: "temperature", definition: "nhiệt độ" },
+  { word: "degree", definition: "độ" },
+  { word: "heat", definition: "sức nóng" },
+  { word: "shadow", definition: "bóng râm" },
+  { word: "light", definition: "ánh sáng" },
+  { word: "darkness", definition: "bóng tối" },
+  { word: "color", definition: "màu sắc" },
+  { word: "red", definition: "màu đỏ" },
+  { word: "blue", definition: "màu xanh dương" },
+  { word: "green", definition: "màu xanh lá" },
+  { word: "yellow", definition: "màu vàng" },
+  { word: "black", definition: "màu đen" },
+  { word: "white", definition: "màu trắng" },
+  { word: "gray", definition: "màu xám" },
+  { word: "purple", definition: "màu tím" },
+  { word: "pink", definition: "màu hồng" },
+  { word: "brown", definition: "màu nâu" },
+  { word: "shape", definition: "hình dáng" },
+  { word: "circle", definition: "hình tròn" },
+  { word: "square", definition: "hình vuông" },
+  { word: "triangle", definition: "hình tam giác" },
+  { word: "line", definition: "đường thẳng" },
+  { word: "point", definition: "điểm" },
+  { word: "size", definition: "kích cỡ" },
+  { word: "weight", definition: "cân nặng" },
+  { word: "height", definition: "chiều cao" },
+  { word: "depth", definition: "chiều sâu" },
+  { word: "width", definition: "chiều rộng" },
+  { word: "length", definition: "chiều dài" },
+  { word: "distance", definition: "khoảng cách" },
+  { word: "number", definition: "con số" },
+  { word: "zero", definition: "số không" },
+  { word: "one", definition: "số một" },
+  { word: "first", definition: "đầu tiên" },
+  { word: "last", definition: "cuối cùng" },
+  { word: "many", definition: "nhiều" },
+  { word: "few", definition: "ít" },
+  { word: "all", definition: "tất cả" },
+  { word: "none", definition: "không ai" },
+  { word: "half", definition: "một nửa" },
+  { word: "whole", definition: "toàn bộ" },
+  { word: "piece", definition: "mảnh vụn" },
+  { word: "group", definition: "nhóm" },
+  { word: "crowd", definition: "đám đông" },
+  { word: "government", definition: "chính phủ" },
+  { word: "law", definition: "luật pháp" },
+  { word: "police", definition: "cảnh sát" },
+  { word: "judge", definition: "thẩm phán" },
+  { word: "court", definition: "tòa án" },
+  { word: "crime", definition: "tội phạm" },
+  { word: "prison", definition: "nhà tù" },
+  { word: "thief", definition: "tên trộm" },
+  { word: "murder", definition: "vụ giết người" },
+  { word: "accident", definition: "tai nạn" },
+  { word: "emergency", definition: "khẩn cấp" },
+  { word: "help", definition: "sự giúp đỡ" },
+  { word: "rescue", definition: "giải cứu" },
+  { word: "disaster", definition: "thảm họa" },
+  { word: "flood", definition: "lũ lụt" },
+  { word: "earthquake", definition: "động đất" },
+  { word: "building", definition: "tòa nhà" },
+  { word: "factory", definition: "nhà máy" },
+  { word: "station", definition: "nhà ga" },
+  { word: "airport", definition: "sân bay" },
+  { word: "bridge", definition: "cây cầu" },
+  { word: "wall", definition: "bức tường" },
+  { word: "roof", definition: "mái nhà" },
+  { word: "floor", definition: "sàn nhà" },
+  { word: "room", definition: "căn phòng" },
+  { word: "kitchen", definition: "nhà bếp" },
+  { word: "bathroom", definition: "phòng tắm" },
+  { word: "bedroom", definition: "phòng ngủ" },
+  { word: "bed", definition: "chiếc giường" },
+  { word: "mirror", definition: "gương soi" },
+  { word: "soap", definition: "xà phòng" },
+  { word: "towel", definition: "khăn tắm" },
+  { word: "blanket", definition: "chiếc chăn" },
+  { word: "pillow", definition: "chiếc gối" },
+  { word: "key", definition: "chìa khóa" },
+  { word: "lock", definition: "ổ khóa" },
+  { word: "tool", definition: "công cụ" },
+  { word: "hammer", definition: "cái búa" },
+  { word: "nail", definition: "chiếc đinh" },
+  { word: "screw", definition: "đinh vít" },
+  { word: "box", definition: "chiếc hộp" },
+  { word: "bag", definition: "cái bao" },
+  { word: "rope", definition: "dây thừng" },
+  { word: "wire", definition: "dây điện" },
+  { word: "machine", definition: "máy móc" },
+  { word: "engine", definition: "động cơ" },
+  { word: "wheel", definition: "bánh xe" },
+  { word: "pump", definition: "máy bơm" },
+  { word: "filter", definition: "bộ lọc" },
+  { word: "energy", definition: "năng lượng" },
+  { word: "power", definition: "sức mạnh" },
+  { word: "electricity", definition: "điện" },
+  { word: "fuel", definition: "nhiên liệu" },
+  { word: "gas", definition: "khí ga" },
+  { word: "oil", definition: "dầu ăn" },
+  { word: "coal", definition: "than đá" },
+  { word: "wood", definition: "gỗ củi" },
+  { word: "waste", definition: "rác thải" },
+  { word: "environment", definition: "môi trường" },
+  { word: "pollution", definition: "ô nhiễm" },
+  { word: "nature", definition: "thiên nhiên" },
+  { word: "scenery", definition: "phong cảnh" },
+  { word: "view", definition: "tầm nhìn" },
+  { word: "horizon", definition: "đường chân trời" },
+  { word: "island", definition: "hòn đảo" },
+  { word: "continent", definition: "lục địa" },
+  { word: "country", definition: "đất nước" },
+  { word: "nation", definition: "quốc gia" },
+  { word: "capital", definition: "thủ đô" },
+  { word: "village", definition: "ngôi làng" },
+  { word: "town", definition: "thị trấn" },
+  { word: "suburb", definition: "ngoại ô" },
+  { word: "border", definition: "biên giới" },
+  { word: "language", definition: "ngôn ngữ" },
+  { word: "word", definition: "từ ngữ" },
+  { word: "sentence", definition: "câu" },
+  { word: "meaning", definition: "ý nghĩa" },
+  { word: "grammar", definition: "ngữ pháp" },
+  { word: "pronunciation", definition: "phát âm" },
+  { word: "accent", definition: "giọng điệu" },
+  { word: "conversation", definition: "cuộc đối thoại" },
+  { word: "speech", definition: "bài phát biểu" },
+  { word: "voice", definition: "giọng nói" },
+  { word: "sound", definition: "âm thanh" },
+  { word: "silence", definition: "sự im lặng" },
+  { word: "noise", definition: "tiếng ồn" },
+  { word: "music", definition: "âm nhạc" },
+  { word: "melody", definition: "giai điệu" },
+  { word: "rhythm", definition: "nhịp điệu" },
+  { word: "instrument", definition: "nhạc cụ" },
+  { word: "guitar", definition: "đàn ghi-ta" },
+  { word: "piano", definition: "đàn pi-a-no" },
+  { word: "drum", definition: "cái trống" },
+  { word: "art", definition: "nghệ thuật" },
+  { word: "artist", definition: "nghệ sĩ" },
+  { word: "picture", definition: "bức tranh" },
+  { word: "photo", definition: "bức ảnh" },
+  { word: "museum", definition: "bảo tàng" },
+  { word: "gallery", definition: "triển lãm" },
+  { word: "theater", definition: "nhà hát" },
+  { word: "cinema", definition: "rạp phim" },
+  { word: "show", definition: "buổi biểu diễn" },
+  { word: "concert", definition: "buổi hòa nhạc" },
+  { word: "celebration", definition: "lễ kỷ niệm" },
+  { word: "party", definition: "bữa tiệc" },
+  { word: "festival", definition: "lễ hội" },
+  { word: "holiday", definition: "ngày lễ" },
+  { word: "vacation", definition: "kỳ nghỉ" },
+  { word: "weekend", definition: "cuối tuần" },
+  { word: "calendar", definition: "lịch" },
+  { word: "schedule", definition: "lịch trình" },
+  { word: "appointment", definition: "cuộc hẹn" },
+  { word: "meeting", definition: "cuộc họp" },
+  { word: "event", definition: "sự kiện" },
+  { word: "experience", definition: "kinh nghiệm" },
+  { word: "memory", definition: "ký ức" },
+  { word: "dream", definition: "giấc mơ" },
+  { word: "hope", definition: "hy vọng" },
+  { word: "wish", definition: "ước muốn" },
+  { word: "goal", definition: "mục tiêu" },
+  { word: "purpose", definition: "mục đích" },
+  { word: "plan", definition: "kế hoạch" },
+  { word: "idea", definition: "ý tưởng" },
+  { word: "thought", definition: "suy nghĩ" },
+  { word: "opinion", definition: "ý kiến" },
+  { word: "belief", definition: "niềm tin" },
+  { word: "religion", definition: "tôn giáo" },
+  { word: "culture", definition: "văn hóa" },
+  { word: "tradition", definition: "truyền thống" },
+  { word: "custom", definition: "phong tục" },
+  { word: "society", definition: "xã hội" },
+  { word: "community", definition: "cộng đồng" },
+  { word: "population", definition: "dân số" },
+  { word: "member", definition: "thành viên" },
+  { word: "leader", definition: "người lãnh đạo" },
+  { word: "boss", definition: "sếp" },
+  { word: "manager", definition: "quản lý" },
+  { word: "employee", definition: "nhân viên" },
+  { word: "colleague", definition: "đồng nghiệp" },
+  { word: "partner", definition: "đối tác" },
+  { word: "customer", definition: "khách hàng" },
+  { word: "client", definition: "khách hàng" },
+  { word: "business", definition: "kinh doanh" },
+  { word: "company", definition: "công ty" },
+  { word: "industry", definition: "ngành công nghiệp" },
+  { word: "trade", definition: "thương mại" },
+  { word: "commerce", definition: "thương mại" },
+  { word: "market", definition: "thị trường" },
+  { word: "sale", definition: "bán hàng" },
+  { word: "purchase", definition: "mua sắm" },
+  { word: "deal", definition: "giao dịch" },
+  { word: "agreement", definition: "thỏa thuận" },
+  { word: "contract", definition: "hợp đồng" },
+  { word: "signature", definition: "chữ ký" },
+  { word: "document", definition: "tài liệu" },
+  { word: "report", definition: "báo cáo" },
+  { word: "project", definition: "dự án" },
+  { word: "task", definition: "nhiệm vụ" },
+  { word: "duty", definition: "nghĩa vụ" },
+  { word: "responsibility", definition: "trách nhiệm" },
+  { word: "success", definition: "sự thành công" },
+  { word: "failure", definition: "sự thất bại" },
+  { word: "mistake", definition: "sai lầm" },
+  { word: "error", definition: "lỗi" },
+  { word: "fault", definition: "lỗi lầm" },
+  { word: "problem", definition: "vấn đề" },
+  { word: "solution", definition: "giải pháp" },
+  { word: "answer", definition: "câu trả lời" },
+  { word: "question", definition: "câu hỏi" },
+  { word: "test", definition: "bài kiểm tra" },
+  { word: "exam", definition: "kỳ thi" },
+  { word: "result", definition: "kết quả" },
+  { word: "score", definition: "điểm số" },
+  { word: "grade", definition: "lớp/điểm" },
+  { word: "mark", definition: "điểm dấu" },
+];
+
+function speakWord(word, accent) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  let utterance = new SpeechSynthesisUtterance(word);
+  let voices = window.speechSynthesis.getVoices();
+  let targetVoice = voices.find((v) =>
+    accent === "uk"
+      ? v.lang === "en-GB" || v.lang === "en_GB"
+      : v.lang === "en-US" || v.lang === "en_US",
+  );
+  if (targetVoice) utterance.voice = targetVoice;
+  utterance.rate = 0.9;
+  window.speechSynthesis.speak(utterance);
+}
+
+// 💡 Hàm đoán từ loại từ nghĩa tiếng Việt
+function guessPartOfSpeech(enWord, viMeaning) {
+  if (!viMeaning) return "Từ loại khác";
+  let lowerMeaning = viMeaning.toLowerCase().trim();
+  let lowerEn = enWord.toLowerCase().trim();
+
+  let wordsCount = lowerEn.split(/[\s\-]+/).filter((w) => w).length;
+  if (wordsCount >= 2) return "Cụm từ";
+
+  if (/^(sự|cái|con|người|việc|chiếc)(?:\s|$)/.test(lowerMeaning))
+    return "Danh từ (n)";
+  if (
+    /^(tính|thuộc|thuộc về|rất|khá|cực kỳ)(?:\s|$)/.test(lowerMeaning) ||
+    /\smột cách$/.test(lowerMeaning)
+  )
+    return "Tính/Trạng từ (adj/adv)";
+  if (
+    /^(làm|chạy|đi|đứng|bị|được|có|đẩy|kéo|nói|cười|khóc|nhìn|nghe|ăn|uống|hoạt động|ngủ|giết|đánh|học|bay|nhảy|mua|bán|chơi)(?:\s|$)/.test(
+      lowerMeaning,
+    )
+  )
+    return "Động từ (v)";
+
+  return "Từ vựng";
+}
+
+// 💡 Hàm dọn dẹp các ký tự IPA phức tạp (Phiên âm chuẩn từ điển cơ bản)
+function cleanPhonetic(ipaStr) {
+  if (!ipaStr) return "";
+  return ipaStr
+    .replace(/ɹ/g, "r") // Đổi chữ 'r' ngược thành r bình thường
+    .replace(/ɡ/g, "g") // Đổi chữ 'g' bụng cong thành g bình thường
+    .replace(/[̠̝͡ʷʲʰʴ]/g, ""); // Lọc bỏ các dấu móc nối, dấu gạch dưới, dấu nhỏ li ti gây rối mắt
+}
+
+async function fetchWordDictData(singleWord) {
+  try {
+    let resDict = await fetch(
+      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(singleWord)}`,
+    );
+    if (resDict.ok) {
+      let dictData = await resDict.json();
+
+      // 1. Lấy phiên âm IPA
+      let phonetics = dictData[0]?.phonetics || [];
+      let ipa = "";
+      let broadIPA = phonetics.find((p) => p.text && p.text.includes("/"));
+      if (broadIPA) ipa = broadIPA.text;
+      else {
+        let validP = phonetics.find((p) => p.text);
+        if (validP) ipa = validP.text;
+        else if (dictData[0]?.phonetic) ipa = dictData[0].phonetic;
+      }
+
+      // 2. Lấy Từ loại (Part of Speech) gốc tiếng Anh
+      let posRaw = dictData[0]?.meanings?.[0]?.partOfSpeech || "";
+
+      return { ipa: cleanPhonetic(ipa), pos: posRaw.toLowerCase() };
+    }
+  } catch (e) {}
+  return { ipa: "", pos: "" };
+}
+
+async function loadAndPreviewWords() {
+  const deckNameVal = document.getElementById("deckName").value.trim();
+  const finalDeckName =
+    deckNameVal || "Bộ từ " + new Date().toLocaleDateString("vi-VN");
+
+  // 🛡️ Bắt lỗi trùng tên bộ từ
+  const isDuplicate = savedDecks.find(
+    (d) =>
+      d.name.toLowerCase() === finalDeckName.toLowerCase() &&
+      d.id !== currentDeckId,
+  );
+  if (isDuplicate) {
+    showToast(
+      `Bộ từ mang tên "${finalDeckName}" đã tồn tại! Vui lòng làm tên khác.`,
+      "error",
+    );
+    document.getElementById("deckName").focus();
+    return;
+  }
+
+  const input = document.getElementById("wordInput").value;
+  const loading = document.getElementById("loading");
+  const inputSection = document.getElementById("inputSection");
+  const previewSection = document.getElementById("previewSection");
+
+  let words = [
+    ...new Set(
+      input
+        .split(/[,\n\r\/]+/)
+        .map((w) => w.trim())
+        .filter((w) => w !== ""),
+    ),
+  ];
+  if (words.length === 0) {
+    showToast("Oops! Bạn quên nhập từ vựng rồi kìa!", "error");
+    return;
+  }
+
+  loading.style.display = "block";
+  document.getElementById("btnLoad").disabled = true;
+
+  preparedData = [];
+  for (let word of words) {
+    try {
+      let resTranslate = await fetch(
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(word)}`,
+      );
+      let translatedWord = word;
+      if (resTranslate.ok) {
+        let data = await resTranslate.json();
+        translatedWord = data[0][0][0];
+      }
+
+      let ipa = "";
+      let fetchedPos = "";
+      let subWords = word.split(/\s+/).filter((w) => w !== "");
+
+      if (subWords.length > 1) {
+        let ipaParts = [];
+        for (let subWord of subWords) {
+          let cleanSub = subWord.replace(/[^a-zA-Z]/g, "");
+          if (cleanSub) {
+            let dictInfo = await fetchWordDictData(cleanSub);
+            let subIpa = dictInfo.ipa;
+            ipaParts.push(
+              subIpa ? subIpa.replace(/[\/\[\]]/g, "") : cleanSub.toLowerCase(),
+            );
+          }
+        }
+        if (ipaParts.length > 0) ipa = "/" + ipaParts.join(" ") + "/";
+        fetchedPos = "idiom"; // Là cụm từ
+      } else {
+        let dictInfo = await fetchWordDictData(word);
+        let singleIpa = dictInfo.ipa;
+        fetchedPos = dictInfo.pos;
+
+        if (singleIpa)
+          ipa = singleIpa.startsWith("[")
+            ? "/" + singleIpa.slice(1, -1) + "/"
+            : singleIpa;
+      }
+
+      // Chuyển đổi mã từ loại của API sang tiếng Việt
+      let posMap = {
+        noun: "Danh từ (n)",
+        verb: "Động từ (v)",
+        adjective: "Tính từ (adj)",
+        adverb: "Trạng từ (adv)",
+        pronoun: "Đại từ (pron)",
+        preposition: "Giới từ (prep)",
+        conjunction: "Liên từ (conj)",
+        interjection: "Thán từ (int)",
+        idiom: "Cụm từ",
+      };
+
+      // Nếu API có từ loại, dùng luôn. Nếu không có (hoặc lỗi), dùng hàm guessPartOfSpeech để dự đoán tự động (fallback)
+      let pos = posMap[fetchedPos] || guessPartOfSpeech(word, translatedWord);
+
+      preparedData.push({ word, definition: translatedWord, ipa, pos });
+    } catch (error) {}
+  }
+
+  loading.style.display = "none";
+  document.getElementById("btnLoad").disabled = false;
+
+  if (preparedData.length === 0) {
+    showToast("Không thể phân tích dữ liệu đầu vào. Thử lại nhé!", "error");
+    return;
+  }
+
+  inputSection.style.display = "none";
+  renderPreviewHtml();
+}
+
+function renderPreviewHtml() {
+  const previewSection = document.getElementById("previewSection");
+  previewSection.style.display = "block";
+  document.getElementById("dashboardSection").style.display = "none";
+  document.getElementById("inputSection").style.display = "none";
+  document.getElementById("quizArea").innerHTML = "";
+  document.getElementById("statsArea").style.display = "none";
+  document.getElementById("progressContainer").style.display = "none";
+
+  const posList = [
+    "Danh từ (n)",
+    "Động từ (v)",
+    "Tính từ (adj)",
+    "Trạng từ (adv)",
+    "Tính/Trạng từ (adj/adv)",
+    "Đại từ (pron)",
+    "Giới từ (prep)",
+    "Liên từ (conj)",
+    "Thán từ (int)",
+    "Cụm từ",
+    "Cụm động từ",
+    "Từ vựng",
+    "Từ loại khác",
+  ];
+
+  let previewHtml = `
+          <h3>🔍 Xem trước & Chỉnh sửa nghĩa</h3>
+          <p style="color:#7f8c8d; font-size:14px; margin-bottom:15px;">Chỉnh sửa nghĩa tiếng Việt (nếu cần) trước khi bắt đầu học nhé!</p>
+          <div class="preview-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px; padding-right:5px;">
+        `;
+
+  preparedData.forEach((item, idx) => {
+    let currentPos = item.pos || "Từ vựng";
+    let optionsHtml = posList
+      .map(
+        (p) =>
+          `<option value="${p}" ${p === currentPos ? "selected" : ""}>${p}</option>`,
+      )
+      .join("");
+    if (!posList.includes(currentPos)) {
+      optionsHtml += `<option value="${currentPos}" selected>${currentPos}</option>`;
+    }
+
+    previewHtml += `
+            <div class="preview-item">
+              <div class="preview-word-info">
+                ${item.word} 
+                <span style="position: relative; display: inline-block; transform: translateY(-2px);">
+                  <select style="width: 125px; font-size: 11px; font-weight: 800; color: var(--primary); padding: 2px 18px 2px 6px; background: rgba(52, 152, 219, 0.08); border: 1px dashed rgba(52, 152, 219, 0.6); border-radius: 6px; outline: none; cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none; text-align: center; text-align-last: center; font-family: 'Nunito', sans-serif;" onchange="updateCustomPos(${idx}, this.value)">
+                    ${optionsHtml}
+                  </select>
+                  <span style="position: absolute; right: 5px; top: 4px; font-size: 10px; pointer-events: none; opacity: 0.7;">▼</span>
+                </span>
+                <span style="font-size: 13px; margin-left: 3px;">${item.ipa || "/.../"}</span>
+              </div>
+              <input type="text" class="preview-input" value="${item.definition}" onchange="updateCustomDefinition(${idx}, this.value)">
+            </div>
+          `;
+  });
+
+  previewHtml += `
+          </div>
+          <p style="font-weight:800; color:var(--primary-dark); margin-bottom:10px; text-align:center;">🎯 CHỌN CHẾ ĐỘ BẮT ĐẦU HỌC:</p>
+          <div class="btn-group">
+            <button class="main-btn btn-flashcard" onclick="startApp('flashcard')">🗂️ Lật Thẻ</button>
+            <button class="main-btn btn-quiz" onclick="startApp('quiz')">📝 Trắc Nghiệm</button>
+            <button class="main-btn btn-spell" onclick="startApp('spell')">⌨️ Gõ Từ</button>
+          </div>
+          <button class="speaker-btn" style="width:100%; margin-top:15px; justify-content:center; color:var(--primary);" onclick="goBackToInput()">✍️ Quay lại nhập thêm từ</button>
+          <button class="speaker-btn" style="width:100%; margin-top:10px; justify-content:center; color:var(--danger);" onclick="goBackToDashboard()">🏠 Về Tủ Từ Vựng</button>
+        `;
+  previewSection.innerHTML = previewHtml;
+}
+
+window.updateCustomPos = (index, value) => {
+  if (preparedData[index]) preparedData[index].pos = value.trim();
+};
+
+window.updateCustomDefinition = (index, value) => {
+  if (preparedData[index]) preparedData[index].definition = value.trim();
+};
+
+window.scrollToUnanswered = () => {
+  const unanswered = document.querySelector(".question-card:not(.answered)");
+  if (unanswered) {
+    unanswered.scrollIntoView({ behavior: "smooth", block: "center" });
+    unanswered.classList.add("shake");
+    setTimeout(() => unanswered.classList.remove("shake"), 400);
+  } else {
+    showToast("Hoan hô! Bạn đã hoàn thành tất cả các câu!", "success");
+  }
+};
+
+window.goBackToDashboard = () => {
+  document.getElementById("previewSection").style.display = "none";
+  document.getElementById("quizArea").innerHTML = "";
+  document.getElementById("statsArea").style.display = "none";
+  document.getElementById("progressContainer").style.display = "none";
+  if (savedDecks.length > 0) {
+    showDashboard();
+  } else {
+    showInputSection();
+  }
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+window.goBackToInput = () => {
+  document.getElementById("inputSection").style.display = "block";
+  document.getElementById("previewSection").style.display = "none";
+  document.getElementById("quizArea").innerHTML = "";
+  document.getElementById("statsArea").style.display = "none";
+  document.getElementById("progressContainer").style.display = "none";
+  document.getElementById("dashboardSection").style.display = "none";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+function startApp(mode) {
+  saveDeck(); // Lưu ngay vào LocalStorage trước khi học
+  document.getElementById("previewSection").style.display = "none";
+  const quizArea = document.getElementById("quizArea");
+  const progressContainer = document.getElementById("progressContainer");
+  const progressBar = document.getElementById("progressBar");
+
+  let localData = JSON.parse(JSON.stringify(preparedData));
+
+  // Không trộn từ vựng nếu đang ở chế độ Lật Thẻ (Flashcard)
+  if (mode !== "flashcard") {
+    localData = localData.sort(() => 0.5 - Math.random());
+  }
+
+  progressBar.style.width = "0%";
+  progressContainer.style.display = mode !== "flashcard" ? "block" : "none";
+
+  quizArea.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom: 15px;">
+            <button class="speaker-btn" onclick="renderPreviewHtml()" style="border-color:var(--primary); color:var(--primary-dark);">⬅️ Trở lại tùy chọn</button>
+          </div>
+        `;
+
+  if (mode === "flashcard") {
+    flashcardData = localData;
+    currentCardIndex = 0;
+    renderFlashcard();
+  } else {
+    totalQuestions = localData.length;
+    answeredQuestions = 0;
+    correctAnswers = 0;
+    mistakes = [];
+
+    const updateProgress = () => {
+      progressBar.style.width = `${(answeredQuestions / totalQuestions) * 100}%`;
+      if (answeredQuestions === totalQuestions)
+        setTimeout(() => showStatistics(mode), 600);
+    };
+
+    if (mode === "quiz") {
+      const prefixLetters = ["A", "B", "C", "D"];
+      localData.forEach((item, index) => {
+        let pool = [...localData, ...dummyDistractors].filter(
+          (x) =>
+            x.definition.toLowerCase().trim() !==
+              item.definition.toLowerCase().trim() &&
+            x.word.toLowerCase().trim() !== item.word.toLowerCase().trim(),
+        );
+
+        let uniquePool = [];
+        let seenDefs = new Set();
+        pool.forEach((x) => {
+          let defLower = x.definition.toLowerCase().trim();
+          if (!seenDefs.has(defLower)) {
+            seenDefs.add(defLower);
+            uniquePool.push(x);
+          }
+        });
+
+        let wrongOptions = uniquePool
+          .sort(() => 0.5 - Math.random())
+          .slice(0, 3);
+        let options = [item, ...wrongOptions].sort(() => 0.5 - Math.random());
+
+        let questionDiv = document.createElement("div");
+        questionDiv.className = "question-card";
+        questionDiv.innerHTML = `
+                <div class="question-text">
+                  <span>${index + 1}. <b>"${item.word}"</b> có nghĩa là gì?</span>
+                  <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'uk')">🇬🇧</button>
+                  <button class="speaker-btn" onclick="speakWord('${item.word.replace(/'/g, "\\'")}', 'us')">🇺🇸</button>
+                </div>
+                <div class="options-grid"></div>
+                <div class="explanation-box"></div>
+              `;
+
+        let grid = questionDiv.querySelector(".options-grid");
+        let explanationDiv = questionDiv.querySelector(".explanation-box");
+
+        options.forEach((opt, optIndex) => {
+          let optDiv = document.createElement("div");
+          optDiv.className = "option";
+          optDiv.innerText = `${prefixLetters[optIndex]}. ${opt.definition}`;
+
+          optDiv.onclick = function () {
+            if (optDiv.classList.contains("disabled")) return;
+            questionDiv
+              .querySelectorAll(".option")
+              .forEach((el) => el.classList.add("disabled"));
+            answeredQuestions++;
+            explanationDiv.style.display = "block";
+
+            if (opt.definition === item.definition) {
+              playSFX("correct");
+              optDiv.classList.add("correct");
+              correctAnswers++;
+              explanationDiv.innerHTML = `🎉 <b>Chính xác!</b> Từ <b>"${item.word}"</b> có nghĩa là <b>"${item.definition}"</b>.`;
+              explanationDiv.style.background = "#eafaf1";
+              explanationDiv.style.color = "var(--success-dark)";
+            } else {
+              playSFX("wrong");
+              optDiv.classList.add("wrong");
+              questionDiv.classList.add("shake");
+              questionDiv.style.borderColor = "var(--danger)";
+              questionDiv.querySelectorAll(".option").forEach((el) => {
+                if (el.innerText.includes(item.definition))
+                  el.classList.add("correct");
+              });
+
+              mistakes.push({
+                word: item.word,
+                question: `Từ "${item.word}"`,
+                correct: item.definition,
+                userAnswer: opt.definition,
+              });
+              explanationDiv.innerHTML = `❌ <b>Chưa chính xác!</b><br>• <b>"${item.word}"</b> nghĩa là <b style="color:var(--success-dark);">${item.definition}</b>.<br>• Bạn chọn nhầm nghĩa của từ: <b>${opt.word}</b>`;
+              explanationDiv.style.background = "#fdedec";
+              explanationDiv.style.color = "var(--danger-dark)";
+            }
+            updateProgress();
+          };
+          grid.appendChild(optDiv);
+        });
+        quizArea.appendChild(questionDiv);
+      });
+    } else if (mode === "spell") {
+      localData.forEach((item, index) => {
+        let questionDiv = document.createElement("div");
+        questionDiv.className = "question-card";
+        questionDiv.innerHTML = `
+                <div class="question-text">${index + 1}. Từ nào có nghĩa là <b>"${item.definition}"</b>?</div>
+                <div style="display:flex; gap:10px;">
+                  <input type="text" class="spell-input" placeholder="Gõ từ tiếng Anh...">
+                  <button class="spell-btn">Check</button>
+                </div>
+                <div class="explanation-box"></div>
+              `;
+
+        let inputField = questionDiv.querySelector(".spell-input");
+        let checkBtn = questionDiv.querySelector(".spell-btn");
+        let explanationDiv = questionDiv.querySelector(".explanation-box");
+
+        const checkAnswer = () => {
+          let userWord = inputField.value.trim().toLowerCase();
+          if (!userWord) return;
+          inputField.disabled = true;
+          checkBtn.disabled = true;
+          answeredQuestions++;
+          explanationDiv.style.display = "block";
+
+          if (userWord === item.word.toLowerCase()) {
+            playSFX("correct");
+            correctAnswers++;
+            inputField.style.borderColor = "var(--success)";
+            inputField.style.background = "#eafaf1";
+            explanationDiv.innerHTML = `🎉 <b>Xuất sắc!</b> Đúng chuẩn chính tả.`;
+            explanationDiv.style.background = "#eafaf1";
+            explanationDiv.style.color = "var(--success-dark)";
+          } else {
+            playSFX("wrong");
+            questionDiv.classList.add("shake");
+            questionDiv.style.borderColor = "var(--danger)";
+            inputField.style.borderColor = "var(--danger)";
+            inputField.style.background = "#fdedec";
+            mistakes.push({
+              word: item.word,
+              question: `Nghĩa là "${item.definition}"`,
+              correct: item.word,
+              userAnswer: userWord,
+            });
+            explanationDiv.innerHTML = `❌ <b>Sai mất rồi!</b> Đáp án đúng: <b style="font-size:18px;">${item.word}</b>`;
+            explanationDiv.style.background = "#fdedec";
+            explanationDiv.style.color = "var(--danger-dark)";
+          }
+          updateProgress();
+        };
+
+        checkBtn.onclick = checkAnswer;
+        inputField.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") checkAnswer();
+        });
+        quizArea.appendChild(questionDiv);
+      });
+    }
+
+    // Thêm cụm nút Điều hướng cuối trang
+    let bottomControls = document.createElement("div");
+    bottomControls.style =
+      "display: flex; gap: 15px; margin-top: 30px; margin-bottom: 40px;";
+    bottomControls.innerHTML = `
+            <button class="main-btn" style="background:#4a5568; box-shadow: 0 4px 0 #2d3748; font-size:14px; flex: 1;" onclick="scrollToUnanswered()">🔍 Tìm câu chưa làm</button>
+            <button class="main-btn btn-primary" style="font-size:14px; flex: 1;" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">⬆️ Lên đầu trang</button>
+          `;
+    quizArea.appendChild(bottomControls);
+  }
+}
+
+function renderFlashcard() {
+  const quizArea = document.getElementById("quizArea");
+  let item = flashcardData[currentCardIndex];
+
+  const posList = [
+    "Danh từ (n)",
+    "Động từ (v)",
+    "Tính từ (adj)",
+    "Trạng từ (adv)",
+    "Tính/Trạng từ (adj/adv)",
+    "Đại từ (pron)",
+    "Giới từ (prep)",
+    "Liên từ (conj)",
+    "Thán từ (int)",
+    "Cụm từ",
+    "Cụm động từ",
+    "Từ vựng",
+    "Từ loại khác",
+  ];
+  let currentPos = item.pos || "Từ vựng";
+  let optionsHtml = posList
+    .map(
+      (p) =>
+        `<option value="${p}" ${p === currentPos ? "selected" : ""}>${p}</option>`,
+    )
+    .join("");
+  if (!posList.includes(currentPos)) {
+    optionsHtml += `<option value="${currentPos}" selected>${currentPos}</option>`;
+  }
+
+  // Tạo chuỗi hình nền mặc định
+  let defaultBg =
+    "linear-gradient(135deg, var(--secondary) 0%, var(--secondary-dark) 100%)";
+  let cardBackStyle = item.imageUrl
+    ? `background: linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.65)), url('${item.imageUrl}') center/cover;`
+    : `background: ${defaultBg};`;
+
+  quizArea.innerHTML = `
+          <div>
+            <button class="speaker-btn" onclick="renderPreviewHtml()" style="margin-bottom: 20px; border-color:var(--primary); color:var(--primary-dark);">⬅️ Trở lại tùy chọn</button>
+          </div>
+          <div class="flashcard-wrapper">
+            <p style="color: #7f8c8d; font-weight: 600; margin-bottom: 10px;">✨ Chạm vào thẻ để lật (có thể sửa trực tiếp nghĩa & từ loại)</p>
+            <div class="flip-card" onclick="if(event.target.tagName !== 'SELECT' && event.target.tagName !== 'INPUT' && event.target.tagName !== 'BUTTON') this.classList.toggle('flipped')">
+              <div class="flip-card-inner">
+                <div class="flip-card-front">
+                  <div class="fc-word">${item.word}</div>
+                  <div style="margin-top: 5px;">
+                    <span style="position: relative; display: inline-block;">
+                      <select style="width: auto; padding-right: 15px; font-size:14px; font-weight:700; color:var(--primary); background: rgba(52, 152, 219, 0.1); padding-top: 4px; padding-bottom: 4px; border: 1px dashed rgba(52, 152, 219, 0.6); border-radius: 8px; outline: none; cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none; text-align: center; text-align-last: center; font-family: 'Nunito', sans-serif;" onchange="updateFlashcardPos(${currentCardIndex}, this.value)">
+                        ${optionsHtml}
+                      </select>
+                      <span style="position: absolute; right: 5px; top: 7px; font-size: 10px; pointer-events: none; opacity: 0.7;">▼</span>
+                    </span>
+                  </div>
+                  <div class="fc-ipa" style="margin-top:8px;">${item.ipa || "/.../"}</div>
+                  <div style="display:flex; gap:15px; margin-top:10px;">
+                    <button class="speaker-btn" onclick="event.stopPropagation(); speakWord('${item.word.replace(/'/g, "\\'")}', 'uk')">🇬🇧 UK</button>
+                    <button class="speaker-btn" onclick="event.stopPropagation(); speakWord('${item.word.replace(/'/g, "\\'")}', 'us')">🇺🇸 US</button>
+                  </div>
+                </div>
+                <div class="flip-card-back" id="fcBackBg_${currentCardIndex}" style="${cardBackStyle}">
+                  <div class="fc-def-container" style="width: 80%;">
+                    <input type="text" class="preview-input" style="width: 100%; text-align: center; font-size: 28px; font-weight: 800; background: transparent; color: white; border: 2px dashed rgba(255,255,255,0.5); padding: 5px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);" value="${item.definition}" onclick="event.stopPropagation()" onchange="updateFlashcardDef(${currentCardIndex}, this.value)" title="Nhấn để sửa nghĩa">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:20px; margin-top:30px;">
+              <button class="speaker-btn" onclick="prevCard()" ${currentCardIndex === 0 ? "disabled" : ""}>⬅️ Trước</button>
+              <span style="font-weight:800; font-size:18px; color:var(--text-color)">${currentCardIndex + 1} / ${flashcardData.length}</span>
+              <button class="speaker-btn" onclick="nextCard()" ${currentCardIndex === flashcardData.length - 1 ? "disabled" : ""}>Sau ➡️</button>
+            </div>
+          </div>
+        `;
+
+  // Tự động tải ảnh từ API Wikipedia (Dùng Search Mode để khớp đa dạng hơn)
+  if (item.imageUrl === undefined) {
+    fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(item.word)}%20-intitle:"disambiguation"&gsrlimit=3&prop=pageimages&format=json&pithumbsize=600&origin=*`,
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        let pages = data.query?.pages;
+        let foundImage = false;
+
+        if (pages) {
+          let bestImage = null;
+          let maxScore = -999;
+          let wordLower = item.word.toLowerCase().trim();
+
+          for (let pageId in pages) {
+            let page = pages[pageId];
+            if (page.thumbnail) {
+              let score = 0;
+              let titleLower = page.title.toLowerCase();
+
+              // Thuật toán chấm điểm mức độ liên quan (Fuzzy Scoring)
+              if (titleLower === wordLower) {
+                score += 100; // Khớp chính xác hoàn toàn tên bài viết
+              } else if (new RegExp(`\\b${wordLower}\\b`).test(titleLower)) {
+                score += 50; // Nằm riêng biệt bên trong câu (Word boundary)
+              } else if (titleLower.startsWith(wordLower)) {
+                score += 30; // Từ khóa nằm ở đầu tiêu đề
+              } else if (titleLower.includes(wordLower)) {
+                score += 10; // Có xuất hiện chuỗi từ khóa
+              }
+
+              // Trừ điểm dựa trên rank trả về của Wiki (kết quả ở xa thì bị trừ bớt điểm độ tin cậy)
+              score -= (page.index || 0) * 2;
+
+              // Cập nhật lấy ảnh có điểm số cao nhất
+              if (score > maxScore) {
+                maxScore = score;
+                bestImage = page.thumbnail.source;
+              }
+            }
+          }
+
+          if (bestImage) {
+            item.imageUrl = bestImage;
+            foundImage = true;
+          }
+        }
+
+        if (foundImage) {
+          let targetItem = preparedData.find((p) => p.word === item.word);
+          if (targetItem) targetItem.imageUrl = item.imageUrl;
+
+          // Nếu người dùng vẫn đang ở thẻ này, thì cập nhật background luôn
+          if (flashcardData[currentCardIndex] === item) {
+            let backEl = document.getElementById(
+              "fcBackBg_" + currentCardIndex,
+            );
+            if (backEl) {
+              backEl.style.background = `linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.65)), url('${item.imageUrl}') center/cover`;
+            }
+          }
+          saveDeck(); // Lưu lại vào máy
+        } else {
+          item.imageUrl = false; // Đánh dấu là không tìm thấy
+          let targetItem = preparedData.find((p) => p.word === item.word);
+          if (targetItem) targetItem.imageUrl = false;
+        }
+      })
+      .catch(() => {
+        item.imageUrl = false;
+      });
+  }
+}
+
+window.updateFlashcardPos = (index, value) => {
+  if (flashcardData[index]) {
+    let val = value.trim();
+    flashcardData[index].pos = val;
+    // Đồng bộ lại với preparedData gốc trước khi lưu
+    let targetItem = preparedData.find(
+      (p) => p.word === flashcardData[index].word,
+    );
+    if (targetItem) targetItem.pos = val;
+
+    saveDeck(); // Lưu vào bộ nhớ LocalStorage
+  }
+};
+
+window.updateFlashcardDef = (index, value) => {
+  if (flashcardData[index]) {
+    let val = value.trim();
+    flashcardData[index].definition = val;
+    // Đồng bộ lại với preparedData gốc trước khi lưu
+    let targetItem = preparedData.find(
+      (p) => p.word === flashcardData[index].word,
+    );
+    if (targetItem) targetItem.definition = val;
+
+    saveDeck(); // Lưu vào bộ nhớ LocalStorage
+  }
+};
+
+window.prevCard = () => {
+  if (currentCardIndex > 0) {
+    currentCardIndex--;
+    renderFlashcard();
+  }
+};
+window.nextCard = () => {
+  if (currentCardIndex < flashcardData.length - 1) {
+    currentCardIndex++;
+    renderFlashcard();
+  }
+};
+
+function showStatistics(mode) {
+  // --- LƯU LẠI TỪ SAI VÀO LOCALSTORAGE CHO BỘ TỪ HIỆN TẠI ---
+  if (currentDeckId && mode !== "flashcard") {
+    let deckIndex = savedDecks.findIndex((d) => d.id === currentDeckId);
+    if (deckIndex >= 0) {
+      let deckMistakes = new Set(savedDecks[deckIndex].mistakes || []);
+      // Quét qua những từ vừa ôn (preparedData)
+      preparedData.forEach((item) => {
+        // Tìm xem từ này lúc nãy làm có bị sai không
+        let missedThisTime = mistakes.find((m) => m.word === item.word);
+        if (missedThisTime) {
+          deckMistakes.add(item.word); // Làm sai -> Chui vào sổ đen
+        } else {
+          deckMistakes.delete(item.word); // Làm đúng -> Thoát khỏi sổ đen
+        }
+      });
+      savedDecks[deckIndex].mistakes = Array.from(deckMistakes);
+      localStorage.setItem("vocaDecks", JSON.stringify(savedDecks));
+    }
+  }
+  // --------------------------------------------------------
+
+  document.getElementById("progressContainer").style.display = "none";
+  const statsArea = document.getElementById("statsArea");
+  statsArea.style.display = "block";
+
+  let percent = Math.round((correctAnswers / totalQuestions) * 100);
+  if (percent === 100)
+    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+
+  let feedback =
+    percent === 100
+      ? "Tuyệt đỉnh! Không chê vào đâu được! 🏆"
+      : percent >= 70
+        ? "Rất tốt! Cố lên chút nữa là hoàn hảo! 👍"
+        : "Đừng buồn, luyện tập thêm là sẽ giỏi thôi! 💪";
+
+  let html = `
+          <div class="stats-title">📊 KẾT QUẢ BÀI HỌC</div>
+          <div style="font-size:22px; font-weight:800; color:var(--text-color); margin-bottom:10px;">Đúng ${correctAnswers} / ${totalQuestions} câu (${percent}%)</div>
+          <p style="color:#7f8c8d; font-weight:600; margin-bottom:20px;">${feedback}</p>
+        `;
+
+  if (mistakes.length > 0) {
+    html += `<div style="text-align:left; background:#fff; padding:20px; border-radius:15px; border:2px dashed #f1c40f;">
+            <strong style="font-size:18px; color:var(--danger-dark); display:block; margin-bottom:15px;">⚠️ Danh sách các từ cần chú ý:</strong>`;
+    mistakes.forEach((err) => {
+      html += `<div style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+              <span style="font-weight:700;">${err.question}</span><br>
+              <span style="color:var(--danger);">❌ Bạn điền: "${err.userAnswer}"</span><br>
+              <span style="color:var(--success-dark); font-weight:700;">✅ Đáp án chuẩn: "${err.correct}"</span>
+            </div>`;
+    });
+    html += `</div>`;
+    html += `<button class="main-btn btn-spell" style="margin-top:20px; width:100%;" onclick="redoMistakes('${mode}')">🔄 Ôn tập riêng các từ sai</button>`;
+  }
+
+  html += `<button class="main-btn btn-quiz" style="margin-top:15px; width:100%;" onclick="goBackToDashboard()">Về tủ từ vựng / Làm bài khác</button>`;
+  statsArea.innerHTML = html;
+  statsArea.scrollIntoView({ behavior: "smooth" });
+}
+
+window.redoMistakes = (mode) => {
+  let mistakeWords = mistakes.map((err) => err.word.toLowerCase());
+  preparedData = preparedData.filter((item) =>
+    mistakeWords.includes(item.word.toLowerCase()),
+  );
+
+  document.getElementById("statsArea").style.display = "none";
+  document.getElementById("quizArea").innerHTML = "";
+
+  startApp(mode);
+};
