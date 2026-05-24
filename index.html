@@ -1489,24 +1489,60 @@
         window.speechSynthesis.speak(utterance);
       }
 
-      async function fetchSingleWordIpa(singleWord) {
+      // 💡 Hàm đoán từ loại từ nghĩa tiếng Việt
+      function guessPartOfSpeech(enWord, viMeaning) {
+        if (!viMeaning) return "Từ loại khác";
+        let lowerMeaning = viMeaning.toLowerCase().trim();
+        let lowerEn = enWord.toLowerCase().trim();
+
+        let wordsCount = lowerEn.split(/[\s\-]+/).filter((w) => w).length;
+        if (wordsCount >= 2) return "Cụm từ";
+
+        if (/^(sự|cái|con|người|việc|chiếc)(?:\s|$)/.test(lowerMeaning))
+          return "Danh từ (n)";
+        if (
+          /^(tính|thuộc|thuộc về|rất|khá|cực kỳ)(?:\s|$)/.test(lowerMeaning) ||
+          /\smột cách$/.test(lowerMeaning)
+        )
+          return "Tính/Trạng từ (adj/adv)";
+        if (
+          /^(làm|chạy|đi|đứng|bị|được|có|đẩy|kéo|nói|cười|khóc|nhìn|nghe|ăn|uống|hoạt động|ngủ|giết|đánh|học|bay|nhảy|mua|bán|chơi)(?:\s|$)/.test(
+            lowerMeaning,
+          )
+        )
+          return "Động từ (v)";
+
+        return "Từ vựng";
+      }
+
+      async function fetchWordDictData(singleWord) {
         try {
           let resDict = await fetch(
             `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(singleWord)}`,
           );
           if (resDict.ok) {
             let dictData = await resDict.json();
+
+            // 1. Lấy phiên âm IPA
             let phonetics = dictData[0]?.phonetics || [];
+            let ipa = "";
             let broadIPA = phonetics.find(
               (p) => p.text && p.text.includes("/"),
             );
-            if (broadIPA) return broadIPA.text;
-            let validP = phonetics.find((p) => p.text);
-            if (validP) return validP.text;
-            if (dictData[0]?.phonetic) return dictData[0].phonetic;
+            if (broadIPA) ipa = broadIPA.text;
+            else {
+              let validP = phonetics.find((p) => p.text);
+              if (validP) ipa = validP.text;
+              else if (dictData[0]?.phonetic) ipa = dictData[0].phonetic;
+            }
+
+            // 2. Lấy Từ loại (Part of Speech) gốc tiếng Anh
+            let posRaw = dictData[0]?.meanings?.[0]?.partOfSpeech || "";
+
+            return { ipa, pos: posRaw.toLowerCase() };
           }
         } catch (e) {}
-        return "";
+        return { ipa: "", pos: "" };
       }
 
       async function loadAndPreviewWords() {
@@ -1563,13 +1599,16 @@
             }
 
             let ipa = "";
+            let fetchedPos = "";
             let subWords = word.split(/\s+/).filter((w) => w !== "");
+
             if (subWords.length > 1) {
               let ipaParts = [];
               for (let subWord of subWords) {
                 let cleanSub = subWord.replace(/[^a-zA-Z]/g, "");
                 if (cleanSub) {
-                  let subIpa = await fetchSingleWordIpa(cleanSub);
+                  let dictInfo = await fetchWordDictData(cleanSub);
+                  let subIpa = dictInfo.ipa;
                   ipaParts.push(
                     subIpa
                       ? subIpa.replace(/[\/\[\]]/g, "")
@@ -1578,15 +1617,36 @@
                 }
               }
               if (ipaParts.length > 0) ipa = "/" + ipaParts.join(" ") + "/";
+              fetchedPos = "idiom"; // Là cụm từ
             } else {
-              let singleIpa = await fetchSingleWordIpa(word);
+              let dictInfo = await fetchWordDictData(word);
+              let singleIpa = dictInfo.ipa;
+              fetchedPos = dictInfo.pos;
+
               if (singleIpa)
                 ipa = singleIpa.startsWith("[")
                   ? "/" + singleIpa.slice(1, -1) + "/"
                   : singleIpa;
             }
 
-            preparedData.push({ word, definition: translatedWord, ipa });
+            // Chuyển đổi mã từ loại của API sang tiếng Việt
+            let posMap = {
+              noun: "Danh từ (n)",
+              verb: "Động từ (v)",
+              adjective: "Tính từ (adj)",
+              adverb: "Trạng từ (adv)",
+              pronoun: "Đại từ (pron)",
+              preposition: "Giới từ (prep)",
+              conjunction: "Liên từ (conj)",
+              interjection: "Thán từ (int)",
+              idiom: "Cụm từ",
+            };
+
+            // Nếu API có từ loại, dùng luôn. Nếu không có (hoặc lỗi), dùng hàm guessPartOfSpeech để dự đoán tự động (fallback)
+            let pos =
+              posMap[fetchedPos] || guessPartOfSpeech(word, translatedWord);
+
+            preparedData.push({ word, definition: translatedWord, ipa, pos });
           } catch (error) {}
         }
 
@@ -1624,7 +1684,9 @@
           previewHtml += `
             <div class="preview-item">
               <div class="preview-word-info">
-                ${item.word} <span>${item.ipa || "/.../"}</span>
+                ${item.word} 
+                <span style="font-size: 11px; font-weight: 800; color: var(--primary); padding: 2px 6px; background: rgba(52, 152, 219, 0.15); border-radius: 6px; display: inline-block; transform: translateY(-2px);">${item.pos || "Từ loại"}</span> 
+                <span style="font-size: 13px; margin-left: 3px;">${item.ipa || "/.../"}</span>
               </div>
               <input type="text" class="preview-input" value="${item.definition}" onchange="updateCustomDefinition(${idx}, this.value)">
             </div>
@@ -1902,7 +1964,8 @@
               <div class="flip-card-inner">
                 <div class="flip-card-front">
                   <div class="fc-word">${item.word}</div>
-                  <div class="fc-ipa">${item.ipa || "/.../"}</div>
+                  <div class="fc-pos" style="font-size:14px; font-weight:700; color:var(--primary); margin-top:5px; background: rgba(52, 152, 219, 0.1); padding: 4px 10px; border-radius: 8px; display: inline-block;">${item.pos || "Từ loại"}</div>
+                  <div class="fc-ipa" style="margin-top:8px;">${item.ipa || "/.../"}</div>
                   <div style="display:flex; gap:15px; margin-top:10px;">
                     <button class="speaker-btn" onclick="event.stopPropagation(); speakWord('${item.word.replace(/'/g, "\\'")}', 'uk')">🇬🇧 UK</button>
                     <button class="speaker-btn" onclick="event.stopPropagation(); speakWord('${item.word.replace(/'/g, "\\'")}', 'us')">🇺🇸 US</button>
