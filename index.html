@@ -1999,17 +1999,31 @@
         const quizArea = document.getElementById("quizArea");
         let item = flashcardData[currentCardIndex];
 
+        const posList = ["Danh từ (n)", "Động từ (v)", "Tính từ (adj)", "Trạng từ (adv)", "Tính/Trạng từ (adj/adv)", "Đại từ (pron)", "Giới từ (prep)", "Liên từ (conj)", "Thán từ (int)", "Cụm từ", "Cụm động từ", "Từ vựng", "Từ loại khác"];
+        let currentPos = item.pos || "Từ vựng";
+        let optionsHtml = posList.map(p => `<option value="${p}" ${p === currentPos ? 'selected' : ''}>${p}</option>`).join('');
+        if (!posList.includes(currentPos)) {
+          optionsHtml += `<option value="${currentPos}" selected>${currentPos}</option>`;
+        }
+
         quizArea.innerHTML = `
           <div>
             <button class="speaker-btn" onclick="renderPreviewHtml()" style="margin-bottom: 20px; border-color:var(--primary); color:var(--primary-dark);">⬅️ Trở lại tùy chọn</button>
           </div>
           <div class="flashcard-wrapper">
-            <p style="color: #7f8c8d; font-weight: 600; margin-bottom: 10px;">✨ Chạm vào thẻ để lật</p>
-            <div class="flip-card" onclick="this.classList.toggle('flipped')">
+            <p style="color: #7f8c8d; font-weight: 600; margin-bottom: 10px;">✨ Chạm vào thẻ để lật (có thể sửa trực tiếp nghĩa & từ loại)</p>
+            <div class="flip-card" onclick="if(event.target.tagName !== 'SELECT' && event.target.tagName !== 'INPUT' && event.target.tagName !== 'BUTTON') this.classList.toggle('flipped')">
               <div class="flip-card-inner">
                 <div class="flip-card-front">
                   <div class="fc-word">${item.word}</div>
-                  <div class="fc-pos" style="font-size:14px; font-weight:700; color:var(--primary); margin-top:5px; background: rgba(52, 152, 219, 0.1); padding: 4px 10px; border-radius: 8px; display: inline-block;">${item.pos || "Từ loại"}</div>
+                  <div style="margin-top: 5px;">
+                    <span style="position: relative; display: inline-block;">
+                      <select style="width: auto; padding-right: 15px; font-size:14px; font-weight:700; color:var(--primary); background: rgba(52, 152, 219, 0.1); padding-top: 4px; padding-bottom: 4px; border: 1px dashed rgba(52, 152, 219, 0.6); border-radius: 8px; outline: none; cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none; text-align: center; text-align-last: center; font-family: 'Nunito', sans-serif;" onchange="updateFlashcardPos(${currentCardIndex}, this.value)">
+                        ${optionsHtml}
+                      </select>
+                      <span style="position: absolute; right: 5px; top: 7px; font-size: 10px; pointer-events: none; opacity: 0.7;">▼</span>
+                    </span>
+                  </div>
                   <div class="fc-ipa" style="margin-top:8px;">${item.ipa || "/.../"}</div>
                   <div style="display:flex; gap:15px; margin-top:10px;">
                     <button class="speaker-btn" onclick="event.stopPropagation(); speakWord('${item.word.replace(/'/g, "\\'")}', 'uk')">🇬🇧 UK</button>
@@ -2017,7 +2031,9 @@
                   </div>
                 </div>
                 <div class="flip-card-back">
-                  <div class="fc-def">${item.definition}</div>
+                  <div class="fc-def-container" style="width: 80%;">
+                    <input type="text" class="preview-input" style="width: 100%; text-align: center; font-size: 28px; font-weight: 800; background: transparent; color: white; border: 2px dashed rgba(255,255,255,0.5); padding: 5px;" value="${item.definition}" onclick="event.stopPropagation()" onchange="updateFlashcardDef(${currentCardIndex}, this.value)" title="Nhấn để sửa nghĩa">
+                  </div>
                 </div>
               </div>
             </div>
@@ -2029,6 +2045,30 @@
           </div>
         `;
       }
+
+      window.updateFlashcardPos = (index, value) => {
+        if (flashcardData[index]) {
+          let val = value.trim();
+          flashcardData[index].pos = val;
+          // Đồng bộ lại với preparedData gốc trước khi lưu
+          let targetItem = preparedData.find(p => p.word === flashcardData[index].word);
+          if (targetItem) targetItem.pos = val;
+          
+          saveDeck(); // Lưu vào bộ nhớ LocalStorage
+        }
+      };
+
+      window.updateFlashcardDef = (index, value) => {
+        if (flashcardData[index]) {
+          let val = value.trim();
+          flashcardData[index].definition = val;
+          // Đồng bộ lại với preparedData gốc trước khi lưu
+          let targetItem = preparedData.find(p => p.word === flashcardData[index].word);
+          if (targetItem) targetItem.definition = val;
+          
+          saveDeck(); // Lưu vào bộ nhớ LocalStorage
+        }
+      };
 
       window.prevCard = () => {
         if (currentCardIndex > 0) {
