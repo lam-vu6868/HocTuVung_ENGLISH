@@ -1515,6 +1515,15 @@
         return "Từ vựng";
       }
 
+      // 💡 Hàm dọn dẹp các ký tự IPA phức tạp (Phiên âm chuẩn từ điển cơ bản)
+      function cleanPhonetic(ipaStr) {
+        if (!ipaStr) return "";
+        return ipaStr
+          .replace(/ɹ/g, "r") // Đổi chữ 'r' ngược thành r bình thường
+          .replace(/ɡ/g, "g") // Đổi chữ 'g' bụng cong thành g bình thường
+          .replace(/[̠̝͡ʷʲʰʴ]/g, ""); // Lọc bỏ các dấu móc nối, dấu gạch dưới, dấu nhỏ li ti gây rối mắt
+      }
+
       async function fetchWordDictData(singleWord) {
         try {
           let resDict = await fetch(
@@ -1539,7 +1548,7 @@
             // 2. Lấy Từ loại (Part of Speech) gốc tiếng Anh
             let posRaw = dictData[0]?.meanings?.[0]?.partOfSpeech || "";
 
-            return { ipa, pos: posRaw.toLowerCase() };
+            return { ipa: cleanPhonetic(ipa), pos: posRaw.toLowerCase() };
           }
         } catch (e) {}
         return { ipa: "", pos: "" };
