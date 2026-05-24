@@ -1683,6 +1683,22 @@
         document.getElementById("statsArea").style.display = "none";
         document.getElementById("progressContainer").style.display = "none";
 
+        const posList = [
+          "Danh từ (n)",
+          "Động từ (v)",
+          "Tính từ (adj)",
+          "Trạng từ (adv)",
+          "Tính/Trạng từ (adj/adv)",
+          "Đại từ (pron)",
+          "Giới từ (prep)",
+          "Liên từ (conj)",
+          "Thán từ (int)",
+          "Cụm từ",
+          "Cụm động từ",
+          "Từ vựng",
+          "Từ loại khác",
+        ];
+
         let previewHtml = `
           <h3>🔍 Xem trước & Chỉnh sửa nghĩa</h3>
           <p style="color:#7f8c8d; font-size:14px; margin-bottom:15px;">Chỉnh sửa nghĩa tiếng Việt (nếu cần) trước khi bắt đầu học nhé!</p>
@@ -1690,13 +1706,26 @@
         `;
 
         preparedData.forEach((item, idx) => {
+          let currentPos = item.pos || "Từ vựng";
+          let optionsHtml = posList
+            .map(
+              (p) =>
+                `<option value="${p}" ${p === currentPos ? "selected" : ""}>${p}</option>`,
+            )
+            .join("");
+          if (!posList.includes(currentPos)) {
+            optionsHtml += `<option value="${currentPos}" selected>${currentPos}</option>`;
+          }
+
           previewHtml += `
             <div class="preview-item">
               <div class="preview-word-info">
                 ${item.word} 
                 <span style="position: relative; display: inline-block; transform: translateY(-2px);">
-                  <input type="text" style="width: 105px; font-size: 11px; font-weight: 800; color: var(--primary); padding: 2px 20px 2px 6px; background: rgba(52, 152, 219, 0.08); border: 1px dashed rgba(52, 152, 219, 0.6); border-radius: 6px; text-align: center; outline: none; transition: 0.2s; cursor: pointer;" onfocus="this.style.borderColor='var(--primary)'; this.style.background='#fff'; this.style.cursor='text';" onblur="this.style.borderColor='rgba(52, 152, 219, 0.6)'; this.style.background='rgba(52, 152, 219, 0.08)'; this.style.cursor='pointer';" value="${item.pos || "Từ loại"}" onchange="updateCustomPos(${idx}, this.value)" title="Nhấn để chỉnh sửa từ loại">
-                  <span style="position: absolute; right: 6px; top: 4px; font-size: 10px; pointer-events: none; opacity: 0.7;">✏️</span>
+                  <select style="width: 125px; font-size: 11px; font-weight: 800; color: var(--primary); padding: 2px 18px 2px 6px; background: rgba(52, 152, 219, 0.08); border: 1px dashed rgba(52, 152, 219, 0.6); border-radius: 6px; outline: none; cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none; text-align: center; text-align-last: center; font-family: 'Nunito', sans-serif;" onchange="updateCustomPos(${idx}, this.value)">
+                    ${optionsHtml}
+                  </select>
+                  <span style="position: absolute; right: 5px; top: 4px; font-size: 10px; pointer-events: none; opacity: 0.7;">▼</span>
                 </span>
                 <span style="font-size: 13px; margin-left: 3px;">${item.ipa || "/.../"}</span>
               </div>
