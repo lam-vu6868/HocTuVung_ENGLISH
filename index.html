@@ -1537,7 +1537,7 @@
         let words = [
           ...new Set(
             input
-              .split(/[,\n\r]+/)
+              .split(/[,\n\r\/]+/)
               .map((w) => w.trim())
               .filter((w) => w !== ""),
           ),
